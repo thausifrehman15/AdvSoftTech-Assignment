@@ -1,0 +1,58 @@
+{
+    "sourceFile": "FrontEnd/src/app/app.module.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 10,
+            "patches": [
+                {
+                    "date": 1740664763261,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1740664888927,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -2,9 +2,9 @@\n import { NgModule } from '@angular/core';\r\n import { AppRoutingModule } from './app-routing.module';\r\n import { AppComponent } from './app.component';\r\n import { FormsModule } from '@angular/forms';\r\n-import { HttpClientModule } from '@angular/common/http';\r\n+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';\r\n import { AuthComponent } from './auth/auth.component';\r\n \r\n @NgModule({\r\n   declarations: [\r\n@@ -14,9 +14,9 @@\n   imports: [\r\n     BrowserModule,\r\n     AppRoutingModule,\r\n     FormsModule,\r\n-    HttpClientModule\r\n+    provideHttpClient(withInterceptorsFromDi())\r\n   ],\r\n   providers: [],\r\n   bootstrap: [AppComponent],\r\n   exports: [AuthComponent]\r\n"
+                },
+                {
+                    "date": 1740664894190,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -2,9 +2,9 @@\n import { NgModule } from '@angular/core';\r\n import { AppRoutingModule } from './app-routing.module';\r\n import { AppComponent } from './app.component';\r\n import { FormsModule } from '@angular/forms';\r\n-import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';\r\n+import { HttpClientModule } from '@angular/common/http';\r\n import { AuthComponent } from './auth/auth.component';\r\n \r\n @NgModule({\r\n   declarations: [\r\n@@ -14,9 +14,9 @@\n   imports: [\r\n     BrowserModule,\r\n     AppRoutingModule,\r\n     FormsModule,\r\n-    provideHttpClient(withInterceptorsFromDi())\r\n+    HttpClientModule\r\n   ],\r\n   providers: [],\r\n   bootstrap: [AppComponent],\r\n   exports: [AuthComponent]\r\n"
+                },
+                {
+                    "date": 1740664932910,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,24 +1,8 @@\n-import { BrowserModule } from '@angular/platform-browser';\r\n-import { NgModule } from '@angular/core';\r\n-import { AppRoutingModule } from './app-routing.module';\r\n-import { AppComponent } from './app.component';\r\n-import { FormsModule } from '@angular/forms';\r\n-import { HttpClientModule } from '@angular/common/http';\r\n-import { AuthComponent } from './auth/auth.component';\r\n+import { Component } from '@angular/core';\r\n \r\n-@NgModule({\r\n-  declarations: [\r\n-    AppComponent,\r\n-    AuthComponent\r\n-  ],\r\n-  imports: [\r\n-    BrowserModule,\r\n-    AppRoutingModule,\r\n-    FormsModule,\r\n-    HttpClientModule\r\n-  ],\r\n-  providers: [],\r\n-  bootstrap: [AppComponent],\r\n-  exports: [AuthComponent]\r\n+@Component({\r\n+  selector: 'app-auth',\r\n+  templateUrl: './auth.component.html',\r\n+  styleUrls: ['./auth.component.css']\r\n })\r\n-export class AppModule { }\r\n+export class AuthComponent { }\r\n"
+                },
+                {
+                    "date": 1740664939431,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,8 +1,24 @@\n-import { Component } from '@angular/core';\r\n+import { BrowserModule } from '@angular/platform-browser';\r\n+import { NgModule } from '@angular/core';\r\n+import { AppRoutingModule } from './app-routing.module';\r\n+import { AppComponent } from './app.component';\r\n+import { FormsModule } from '@angular/forms';\r\n+import { HttpClientModule } from '@angular/common/http';\r\n+import { AuthComponent } from './auth/auth.component';\r\n \r\n-@Component({\r\n-  selector: 'app-auth',\r\n-  templateUrl: './auth.component.html',\r\n-  styleUrls: ['./auth.component.css']\r\n+@NgModule({\r\n+  declarations: [\r\n+    AppComponent,\r\n+    AuthComponent\r\n+  ],\r\n+  imports: [\r\n+    BrowserModule,\r\n+    AppRoutingModule,\r\n+    FormsModule,\r\n+    HttpClientModule\r\n+  ],\r\n+  providers: [],\r\n+  bootstrap: [AppComponent],\r\n+  exports: [AuthComponent]\r\n })\r\n-export class AuthComponent { }\r\n+export class AppModule { }\r\n"
+                },
+                {
+                    "date": 1740664945976,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,24 +1,8 @@\n-import { BrowserModule } from '@angular/platform-browser';\r\n-import { NgModule } from '@angular/core';\r\n-import { AppRoutingModule } from './app-routing.module';\r\n-import { AppComponent } from './app.component';\r\n-import { FormsModule } from '@angular/forms';\r\n-import { HttpClientModule } from '@angular/common/http';\r\n-import { AuthComponent } from './auth/auth.component';\r\n+import { Component } from '@angular/core';\r\n \r\n-@NgModule({\r\n-  declarations: [\r\n-    AppComponent,\r\n-    AuthComponent\r\n-  ],\r\n-  imports: [\r\n-    BrowserModule,\r\n-    AppRoutingModule,\r\n-    FormsModule,\r\n-    HttpClientModule\r\n-  ],\r\n-  providers: [],\r\n-  bootstrap: [AppComponent],\r\n-  exports: [AuthComponent]\r\n+@Component({\r\n+  selector: 'app-auth',\r\n+  templateUrl: './auth.component.html',\r\n+  styleUrls: ['./auth.component.css']\r\n })\r\n-export class AppModule { }\r\n+export class AuthComponent { }\r\n"
+                },
+                {
+                    "date": 1740664957173,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,8 +1,24 @@\n-import { Component } from '@angular/core';\r\n+import { BrowserModule } from '@angular/platform-browser';\r\n+import { NgModule } from '@angular/core';\r\n+import { AppRoutingModule } from './app-routing.module';\r\n+import { AppComponent } from './app.component';\r\n+import { FormsModule } from '@angular/forms';\r\n+import { HttpClientModule } from '@angular/common/http';\r\n+import { AuthComponent } from './auth/auth.component';\r\n \r\n-@Component({\r\n-  selector: 'app-auth',\r\n-  templateUrl: './auth.component.html',\r\n-  styleUrls: ['./auth.component.css']\r\n+@NgModule({\r\n+  declarations: [\r\n+    AppComponent,\r\n+    AuthComponent\r\n+  ],\r\n+  imports: [\r\n+    BrowserModule,\r\n+    AppRoutingModule,\r\n+    FormsModule,\r\n+    HttpClientModule\r\n+  ],\r\n+  providers: [],\r\n+  bootstrap: [AppComponent],\r\n+  exports: [AuthComponent]\r\n })\r\n-export class AuthComponent { }\r\n+export class AppModule { }\r\n"
+                },
+                {
+                    "date": 1740664980795,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -2,9 +2,9 @@\n import { NgModule } from '@angular/core';\r\n import { AppRoutingModule } from './app-routing.module';\r\n import { AppComponent } from './app.component';\r\n import { FormsModule } from '@angular/forms';\r\n-import { HttpClientModule } from '@angular/common/http';\r\n+import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http';\r\n import { AuthComponent } from './auth/auth.component';\r\n \r\n @NgModule({\r\n   declarations: [\r\n@@ -14,11 +14,12 @@\n   imports: [\r\n     BrowserModule,\r\n     AppRoutingModule,\r\n     FormsModule,\r\n-    HttpClientModule\r\n+    provideHttpClient(withInterceptorsFromDi())\r\n   ],\r\n   providers: [],\r\n+  schemas: [CUSTOM_ELEMENTS_SCHEMA],\r\n   bootstrap: [AppComponent],\r\n   exports: [AuthComponent]\r\n })\r\n export class AppModule { }\r\n"
+                },
+                {
+                    "date": 1740664996917,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -13,13 +13,14 @@\n   ],\r\n   imports: [\r\n     BrowserModule,\r\n     AppRoutingModule,\r\n-    FormsModule,\r\n+    FormsModule\r\n+  ],\r\n+  providers: [],\r\n+  providers: [\r\n     provideHttpClient(withInterceptorsFromDi())\r\n   ],\r\n-  providers: [],\r\n-  schemas: [CUSTOM_ELEMENTS_SCHEMA],\r\n   bootstrap: [AppComponent],\r\n   exports: [AuthComponent]\r\n })\r\n export class AppModule { }\r\n"
+                },
+                {
+                    "date": 1740665001989,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -15,9 +15,8 @@\n     BrowserModule,\r\n     AppRoutingModule,\r\n     FormsModule\r\n   ],\r\n-  providers: [],\r\n   providers: [\r\n     provideHttpClient(withInterceptorsFromDi())\r\n   ],\r\n   bootstrap: [AppComponent],\r\n"
+                },
+                {
+                    "date": 1740665262929,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -18,6 +18,7 @@\n   ],\r\n   providers: [\r\n     provideHttpClient(withInterceptorsFromDi())\r\n   ],\r\n-  bootstrap: [AppComponent]})\r\n+  bootstrap: [AppComponent]\r\n+})\r\n export class AppModule { }\r\n"
+                }
+            ],
+            "date": 1740664763261,
+            "name": "Commit-0",
+            "content": "import { BrowserModule } from '@angular/platform-browser';\r\nimport { NgModule } from '@angular/core';\r\nimport { AppRoutingModule } from './app-routing.module';\r\nimport { AppComponent } from './app.component';\r\nimport { FormsModule } from '@angular/forms';\r\nimport { HttpClientModule } from '@angular/common/http';\r\nimport { AuthComponent } from './auth/auth.component';\r\n\r\n@NgModule({\r\n  declarations: [\r\n    AppComponent,\r\n    AuthComponent\r\n  ],\r\n  imports: [\r\n    BrowserModule,\r\n    AppRoutingModule,\r\n    FormsModule,\r\n    HttpClientModule\r\n  ],\r\n  providers: [],\r\n  bootstrap: [AppComponent],\r\n  exports: [AuthComponent]\r\n})\r\nexport class AppModule { }\r\n"
+        }
+    ]
+}

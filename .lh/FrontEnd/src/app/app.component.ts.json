@@ -1,0 +1,18 @@
+{
+    "sourceFile": "Frontend/src/app/app.component.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1740666772815,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1740666772815,
+            "name": "Commit-0",
+            "content": "import { Component } from '@angular/core';\r\nimport { RouterOutlet } from '@angular/router';\r\nimport { LandingComponent } from './landing/landing.component';\r\n\r\n@Component({\r\n  selector: 'app-root',\r\n  imports: [RouterOutlet, LandingComponent],\r\n  templateUrl: './app.component.html',\r\n  styleUrl: './app.component.scss'\r\n})\r\nexport class AppComponent {\r\n  title = 'FrontEnd';\r\n}\r\n"
+        }
+    ]
+}
