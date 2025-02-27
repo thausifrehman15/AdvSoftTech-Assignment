@@ -1,0 +1,10 @@
+<form (ngSubmit)="getSentiment()">
+  <div>
+    <label for="text">Text:</label>
+    <input type="text" id="text" [(ngModel)]="text" name="text" required>
+  </div>
+  <button type="submit">Analyze Sentiment</button>
+</form>
+<div *ngIf="sentiment">
+  <p>Sentiment: {{ sentiment }}</p>
+</div>
