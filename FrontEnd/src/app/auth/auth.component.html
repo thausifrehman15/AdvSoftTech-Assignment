@@ -1,0 +1,34 @@
+<div class="auth-container">
+  <button (click)="toggleForm()">
+    {{ showLogin ? 'Switch to Register' : 'Switch to Login' }}
+  </button>
+
+  <div *ngIf="showLogin">
+    <h2>Login</h2>
+    <form (ngSubmit)="login()">
+      <label for="email">Email:</label>
+      <input type="email" id="email" [(ngModel)]="email" name="email" required>
+      
+      <label for="password">Password:</label>
+      <input type="password" id="password" [(ngModel)]="password" name="password" required>
+      
+      <button type="submit">Login</button>
+    </form>
+  </div>
+
+  <div *ngIf="!showLogin">
+    <h2>Register</h2>
+    <form (ngSubmit)="register()">
+      <label for="email">Email:</label>
+      <input type="email" id="email" [(ngModel)]="email" name="email" required>
+      
+      <label for="password">Password:</label>
+      <input type="password" id="password" [(ngModel)]="password" name="password" required>
+      
+      <label for="confirmPassword">Confirm Password:</label>
+      <input type="password" id="confirmPassword" [(ngModel)]="confirmPassword" name="confirmPassword" required>
+      
+      <button type="submit">Register</button>
+    </form>
+  </div>
+</div>
