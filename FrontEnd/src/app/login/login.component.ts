@@ -1,22 +1,23 @@
 import { Component } from '@angular/core';
-import { AuthService } from '../services/auth.service';
+import { Router } from '@angular/router';
+import { UserService } from '../services/user.service';
 
 @Component({
   selector: 'app-login',
   templateUrl: './login.component.html',
-  styleUrls: ['./login.component.css']
+  styleUrls: ['./login.component.scss']
 })
 export class LoginComponent {
-  email: string;
-  password: string;
+  username: string = '';
+  password: string = '';
 
-  constructor(private authService: AuthService) {}
+  constructor(private userService: UserService, private router: Router) {}
 
   login() {
-    this.authService.login(this.email, this.password).subscribe(response => {
-      console.log('Login successful', response);
-    }, error => {
-      console.error('Login failed', error);
-    });
+    if (this.userService.login(this.username, this.password)) {
+      this.router.navigate(['/']);
+    } else {
+      alert('Invalid credentials');
+    }
   }
 }
