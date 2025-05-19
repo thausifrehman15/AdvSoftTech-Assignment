@@ -1,0 +1,22 @@
+{
+    "sourceFile": "Frontend/src/app/app.config.server.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 1,
+            "patches": [
+                {
+                    "date": 1740661615974,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1740661641146,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,14 +1,14 @@\n import { mergeApplicationConfig, ApplicationConfig } from '@angular/core';\r\n import { provideServerRendering } from '@angular/platform-server';\r\n-import { provideServerRouting } from '@angular/platform-server';\r\n+// import { provideServerRouting } from '@angular/platform-server';\r\n import { appConfig } from './app.config';\r\n import { serverRoutes } from './app.routes.server';\r\n \r\n const serverConfig: ApplicationConfig = {\r\n   providers: [\r\n     provideServerRendering(),\r\n-    provideServerRouting(serverRoutes)\r\n+    // provideServerRouting(serverRoutes)\r\n   ]\r\n };\r\n \r\n export const config = mergeApplicationConfig(appConfig, serverConfig);\r\n"
+                }
+            ],
+            "date": 1740661615974,
+            "name": "Commit-0",
+            "content": "import { mergeApplicationConfig, ApplicationConfig } from '@angular/core';\r\nimport { provideServerRendering } from '@angular/platform-server';\r\nimport { provideServerRouting } from '@angular/platform-server';\r\nimport { appConfig } from './app.config';\r\nimport { serverRoutes } from './app.routes.server';\r\n\r\nconst serverConfig: ApplicationConfig = {\r\n  providers: [\r\n    provideServerRendering(),\r\n    provideServerRouting(serverRoutes)\r\n  ]\r\n};\r\n\r\nexport const config = mergeApplicationConfig(appConfig, serverConfig);\r\n"
+        }
+    ]
+}
