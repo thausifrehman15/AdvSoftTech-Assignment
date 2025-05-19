@@ -1,0 +1,18 @@
+{
+    "sourceFile": "FrontEnd/readme.md",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1739466476559,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1739466476559,
+            "name": "Commit-0",
+            "content": "# FrontEnd Readme\r\n\r\n## Project Overview\r\nThis project is part of the AdvSoftTech-Assignment. It focuses on the frontend development of the application.\r\n\r\n## Technologies Used\r\n- HTML\r\n- CSS\r\n- JavaScript\r\n- React\r\n\r\n## Setup Instructions\r\n1. Clone the repository:\r\n    ```bash\r\n    git clone https://github.com/your-repo/AdvSoftTech-Assignment.git\r\n    ```\r\n2. Navigate to the FrontEnd directory:\r\n    ```bash\r\n    cd AdvSoftTech-Assignment/FrontEnd\r\n    ```\r\n3. Install dependencies:\r\n    ```bash\r\n    npm install\r\n    ```\r\n4. Start the development server:\r\n    ```bash\r\n    npm start\r\n    ```\r\n\r\n## Project Structure\r\n- `src/` - Contains the source code\r\n- `public/` - Contains public assets\r\n- `package.json` - Project configuration and dependencies\r\n\r\n## Contributing\r\n1. Fork the repository.\r\n2. Create a new branch (`git checkout -b feature-branch`).\r\n3. Make your changes.\r\n4. Commit your changes (`git commit -m 'Add some feature'`).\r\n5. Push to the branch (`git push origin feature-branch`).\r\n6. Open a pull request.\r\n\r\n## License\r\nThis project is licensed under the MIT License.\r\n\r\n## Contact\r\nFor any questions or feedback, please contact [your-email@example.com](mailto:your-email@example.com)."
+        }
+    ]
+}
