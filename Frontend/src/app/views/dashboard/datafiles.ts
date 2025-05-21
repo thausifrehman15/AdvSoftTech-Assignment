@@ -760,7 +760,25 @@ export function mockGetUserData(): Observable<{
  * @param prediction Prediction to add
  */
 export function addPredictionToHistory(prediction: any): void {
-  userPredictionHistory.unshift(prediction);
+  // Check if this exact prediction is already in the history
+  const isDuplicate = userPredictionHistory.some((p: any) => 
+    p.text === prediction.text && 
+    ((p.timestamp instanceof Date && prediction.timestamp instanceof Date && 
+      p.timestamp.getTime() === prediction.timestamp.getTime()) ||
+     (typeof p.timestamp === 'string' && typeof prediction.timestamp === 'string' &&
+      p.timestamp === prediction.timestamp))
+  );
+  
+  // Only add if not a duplicate
+  if (!isDuplicate) {
+    userPredictionHistory.unshift({
+      text: prediction.text,
+      result: prediction.result,
+      confidence: prediction.confidence,
+      categories: prediction.categories || [],
+      timestamp: prediction.timestamp
+    });
+  }
 }
 
 /**
