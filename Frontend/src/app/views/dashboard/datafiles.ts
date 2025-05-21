@@ -562,103 +562,39 @@ export function mockPredictText(text: string): Observable<any> {
  */
 export function mockUploadCsvFile(
   file: File
-): Observable<{ fileId: string; name: string; timestamp: Date }> {
-  // Generate a unique ID
+): Observable<{ fileId: string; name: string; timestamp: string }> {
+  console.warn(`MOCK: Simulating CSV upload for ${file.name}`);
   const fileId = 'file_' + Date.now();
-  const timestamp = new Date();
+  const timestamp = new Date().toISOString(); // Convert to string format
 
   // Add to pending files
   const pendingFile = {
     id: fileId,
     name: file.name,
-    timestamp: timestamp,
+    timestamp: new Date(),
   };
   pendingFiles.push(pendingFile);
 
   // Schedule automatic completion after 8 seconds
   setTimeout(() => {
-    // Find and remove the file from pending
     const pendingIndex = pendingFiles.findIndex((f) => f.id === fileId);
     if (pendingIndex !== -1) {
       pendingFiles.splice(pendingIndex, 1);
 
-      // Create completed file with sample data
       const newCompletedFile = {
         id: fileId,
         name: file.name,
         status: 'completed' as 'completed' | 'pending' | 'error',
         timestamp: new Date(),
         isDefault: false,
-        data: [
-          {
-            Text: 'We love your customer service approach!',
-            Prediction: 'Very Positive',
-            Confidence: 92,
-            categories: [
-              { name: 'Very Negative', value: 1 },
-              { name: 'Slightly Negative', value: 2 },
-              { name: 'Neutral', value: 1 },
-              { name: 'Slightly Positive', value: 4 },
-              { name: 'Very Positive', value: 92 },
-            ],
-          },
-          {
-            Text: 'The product is okay but delivery was slow.',
-            Prediction: 'Neutral',
-            Confidence: 68,
-            categories: [
-              { name: 'Very Negative', value: 5 },
-              { name: 'Slightly Negative', value: 12 },
-              { name: 'Neutral', value: 68 },
-              { name: 'Slightly Positive', value: 10 },
-              { name: 'Very Positive', value: 5 },
-            ],
-          },
-          {
-            Text: 'I was disappointed with the quality.',
-            Prediction: 'Slightly Negative',
-            Confidence: 75,
-            categories: [
-              { name: 'Very Negative', value: 15 },
-              { name: 'Slightly Negative', value: 75 },
-              { name: 'Neutral', value: 5 },
-              { name: 'Slightly Positive', value: 3 },
-              { name: 'Very Positive', value: 2 },
-            ],
-          },
-        ],
-        chartData: {
-          labels: [
-            'Very Negative',
-            'Slightly Negative',
-            'Neutral',
-            'Slightly Positive',
-            'Very Positive',
-          ],
-          datasets: [
-            {
-              label: 'Sentiment Analysis Results',
-              backgroundColor: [
-                'rgba(220, 53, 69, 0.8)', // Very Negative - red
-                'rgba(255, 193, 7, 0.8)', // Slightly Negative - amber
-                'rgba(108, 117, 125, 0.8)', // Neutral - gray
-                'rgba(13, 202, 240, 0.8)', // Slightly Positive - info blue
-                'rgba(25, 135, 84, 0.8)', // Very Positive - green
-              ],
-              borderColor: 'rgba(179,181,198,1)',
-              data: [7, 29, 25, 14, 31],
-            },
-          ],
-        },
+        data: [], // Add sample data if needed
+        chartData: generateChartData(file.name), // Generate dummy chart data
       };
 
-      // Add to completed files
       completedFiles.push(newCompletedFile);
-
-      // Add to CSV files data for visualization
       csvFilesData.push(newCompletedFile);
     }
-  }, 8000); // Process after 8 seconds
+  }, 8000);
 
   // Return the file details immediately
   return of({

@@ -510,7 +510,6 @@ export class DashboardComponent implements OnInit {
     };
   }
 
-
   predictCsvFile(): void {
     const file = this.fileUploadForm.get('csvFile')?.value;
 
@@ -520,19 +519,19 @@ export class DashboardComponent implements OnInit {
     }
 
     // Upload file for prediction
-    this.predictionService.uploadCsvForPrediction(file).subscribe({
+    this.predictionService.uploadCsvForPrediction(file, '', '').subscribe({
       next: (response) => {
-        if (!response) {
-          // Handle null response
+        if (!response || !response.fileId) {
+          // Handle null or invalid response
           alert('Failed to upload file. Please try again.');
           return;
         }
-        
+
         // Add to pending files
         this.pendingFiles.push({
           id: response.fileId,
           name: response.name || file.name,
-          timestamp: new Date(response.timestamp) || new Date()
+          timestamp: new Date(response.timestamp),
         });
 
         // Reset form
@@ -544,7 +543,7 @@ export class DashboardComponent implements OnInit {
       error: (error) => {
         console.error('Error uploading file:', error);
         alert('Failed to upload file. Please try again.');
-      }
+      },
     });
   }
 

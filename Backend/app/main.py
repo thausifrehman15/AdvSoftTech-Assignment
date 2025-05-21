@@ -9,8 +9,10 @@ import io
 import requests  # ✅ For internal API call
 import json  # For handling JSON files
 from flask_swagger_ui import get_swaggerui_blueprint
+from flask_cors import CORS  # Import CORS
 
 app = Flask(__name__, static_url_path='/static', static_folder='static')
+CORS(app)  # Enable CORS for all routes
 
 # Add these lines after creating the Flask app
 SWAGGER_URL = '/api/docs'
@@ -182,6 +184,7 @@ def bulk_predict():
     # Check if the user is subscribed
     try:
         response = requests.get(f"http://127.0.0.1:5000/check-subscription?username={username}")
+        print(f"DEBUG: Calling internal API: {response}")
         data = response.json()
 
         if data["access"] == False:
