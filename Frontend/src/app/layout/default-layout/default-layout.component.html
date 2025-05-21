@@ -8,8 +8,8 @@
 >
   <c-sidebar-header class="border-bottom">
     <c-sidebar-brand [routerLink]="[]">
-      <svg [class]="{icon: false}" cIcon class="sidebar-brand-full" height="32" name="logo" title="CoreUI Logo"></svg>
-      <svg cIcon class="sidebar-brand-narrow" height="32" name="signet" title="CoreUI Logo"></svg>
+      <img src="assets/brand/emotionary1.svg" class="sidebar-brand-full" height="43" width="200" alt="Emotionary Logo" style="filter: brightness(0) invert(1);">
+      <img src="assets/brand/emotionary1.svg" class="sidebar-brand-narrow" height="43" width="200" alt="Emotionary Logo" style="filter: brightness(0) invert(1);">
     </c-sidebar-brand>
   </c-sidebar-header>
 
@@ -26,19 +26,13 @@
 
 <!--main-->
 <div class="wrapper d-flex flex-column min-vh-100">
-  <!--app-header-->
-  <app-default-header
-    [cShadowOnScroll]="'sm'"
-    class="mb-4 d-print-none header header-sticky p-0 shadow-sm"
-    position="sticky"
-    sidebarId="sidebar1"
-  />
-  <!--app-body-->
-  <div class="body flex-grow-1">
-    <c-container fluid class="h-auto px-4">
+  <!-- Make sure you have default-header -->
+  <app-default-header class="mb-4 d-print-none header header-sticky" position="sticky" sidebarId="sidebar" />
+  
+  <div class="body flex-grow-1 px-3">
+    <c-container breakpoint="lg" class="h-auto" style="display: initial !important;">
       <router-outlet />
     </c-container>
   </div>
-  <!--app footer-->
   <app-default-footer />
 </div>

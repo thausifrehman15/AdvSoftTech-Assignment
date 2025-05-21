@@ -1,9 +1,9 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, signal, WritableSignal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { CommonModule, NgStyle } from '@angular/common';
-import { DocsExampleComponent } from '@docs-components/public-api';
 import {
   ButtonDirective,
+  AlertComponent,
   CardBodyComponent,
   CardComponent,
   CardHeaderComponent,
@@ -34,7 +34,9 @@ import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { ChartOptions } from 'chart.js';
 import {   SAMPLE_PREDICTION_HISTORY,SAMPLE_CSV_FILES,SAMPLE_PENDING_FILES,SAMPLE_MY_FILES} from './datafiles';
 import { PredictionService } from './prediction.service';
-import { interval, Subscription, takeWhile } from 'rxjs';
+import { SubscriptionService } from '../../services/subscription.service';
+import { filter, interval, Subscription, takeWhile } from 'rxjs';
+import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 
 interface CsvFile {
   id: string;
@@ -70,24 +72,21 @@ interface CsvFile {
     ColComponent,
     ListGroupDirective,
     ListGroupItemDirective,
-    DocsExampleComponent,
     FormsModule,
     FormDirective,
     FormLabelDirective,
     FormControlDirective,
     ButtonDirective,
-    NgStyle,
-    RowDirective,
-    GutterDirective,
-    ColDirective,
+    AlertComponent
   ],
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
+
 export class DashboardComponent implements OnInit {
   private _cachedChartData: ChartData | null = null;
   private _lastPredictionTimeStamp: Date | null = null;
   private selectedHistoryItem: any = null;
   private statusCheckSubscription: Subscription | null = null;
+  private fileStatusSubscriptions = new Map<string, Subscription>();
 
   public activeTab = 'single';
   public activeCsvFile = ''; // Track active CSV file
@@ -140,7 +139,14 @@ export class DashboardComponent implements OnInit {
   public pendingFiles: { id: string; name: string; timestamp: Date }[] = [];
   public myFiles: CsvFile[] = []; // This will store user's completed files
 
-  constructor(private http: HttpClient, private predictionService: PredictionService,  private cdr: ChangeDetectorRef) {}
+  constructor(
+  private http: HttpClient,
+  private predictionService: PredictionService,
+  private subscriptionService: SubscriptionService, // Add this
+  private cdr: ChangeDetectorRef,
+  private route: ActivatedRoute,
+  private router: Router
+  ) {}
 
   get totalPages(): number {
     return this.currentCsvFile
@@ -151,6 +157,11 @@ export class DashboardComponent implements OnInit {
   public singlePredictionForm = new FormGroup({
     textInput: new FormControl('', { nonNullable: true }),
   });
+
+  public predictionForm = new FormGroup({
+    text: new FormControl('', { nonNullable: true }),
+  });
+  public isPredicting: boolean = false;
 
   public fileUploadForm = new FormGroup({
     csvFile: new FormControl<File | null>(null),
@@ -253,23 +264,43 @@ export class DashboardComponent implements OnInit {
     ],
   };
 
-  get randomData() {
-    return Math.round(Math.random() * 100);
-  }
-
   ngOnInit(): void {
+    // 1. Get the initial activeTab from route data
+    this.route.data.subscribe(data => {
+      if (data['activeTab']) {
+        this.activeTab = data['activeTab'];
+        console.log('Active tab from route data:', this.activeTab);
+      }
+    });
+    
+    // 2. Update activeTab on URL changes without full reload
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe(() => {
+      const url = this.router.url;
+      
+      if (url.includes('/dashboard/bulk')) {
+        this.activeTab = 'bulk';
+      } else if (url.includes('/dashboard/single')) {
+        this.activeTab = 'single';
+      }
+      
+      // Force change detection to update UI without full reload
+      this.cdr.detectChanges();
+    });
+
     this.predictionService.getUserData().subscribe({
       next: (userData) => {
         this.singlePredictionHistory = userData.predictionHistory;
         this.pendingFiles = userData.pendingFiles;
         this.myFiles = userData.completedFiles;
         this.filteredFiles = this.myFiles;
-        
+
         // Set active CSV file if any exist
         if (this.csvFiles.length > 0) {
           this.activeCsvFile = this.csvFiles[0].id;
         }
-        
+
         // Set initial data for single prediction display
         if (this.singlePredictionHistory.length > 0) {
           this.lastSinglePrediction = { ...this.singlePredictionHistory[0] };
@@ -278,44 +309,19 @@ export class DashboardComponent implements OnInit {
       },
       error: (error) => {
         console.error('Error loading user data:', error);
-        
         // Fallback to sample data if API fails
         this.csvFiles = SAMPLE_CSV_FILES;
         this.singlePredictionHistory = SAMPLE_PREDICTION_HISTORY;
         this.pendingFiles = SAMPLE_PENDING_FILES;
         this.myFiles = SAMPLE_MY_FILES;
         this.filteredFiles = this.myFiles;
-        
+
         if (this.singlePredictionHistory.length > 0) {
           this.lastSinglePrediction = { ...this.singlePredictionHistory[0] };
           this.selectedHistoryItem = this.singlePredictionHistory[0];
         }
-      }
+      },
     });
-  }
-
-  private generateFiveCategorySentiment(index: number): number[] {
-    let values: number[] = [0, 0, 0, 0, 0];
-
-    switch (index % 5) {
-      case 0: // Very positive
-        values = [5, 7, 13, 30, 45];
-        break;
-      case 1: // Very negative
-        values = [42, 28, 15, 10, 5];
-        break;
-      case 2: // Slightly positive
-        values = [8, 12, 20, 38, 22];
-        break;
-      case 3: // Slightly negative
-        values = [25, 35, 20, 15, 5];
-        break;
-      case 4: // Neutral
-        values = [12, 18, 40, 20, 10];
-        break;
-    }
-
-    return values;
   }
 
   showHistoryItemChart(prediction: any): void {
@@ -363,7 +369,6 @@ export class DashboardComponent implements OnInit {
     this.currentPage = 0;
   }
 
-  // Method to get current active CSV file data
   get currentCsvFile(): CsvFile | undefined {
     return this.csvFiles.find((file) => file.id === this.activeCsvFile);
   }
@@ -375,47 +380,41 @@ export class DashboardComponent implements OnInit {
 
     this.predictionService.predictText(textValue).subscribe({
       next: (result) => {
-        // Transform the API response to our internal format
-        const categories = Object.entries(result.sentiment_scores)
-          .map(([name, value]) => ({
-            name: name === 'neutral' ? 'Neutral' : name, // Normalize 'neutral' to 'Neutral'
-            value: Number((value as number * 100).toFixed(2)) // Convert to percentage and round
-          }));
+        const categories = Object.entries(result.sentiment_scores).map(
+          ([name, value]) => ({
+            name: name === 'neutral' ? 'Neutral' : name,
+            value: Number(((value as number) * 100).toFixed(2)),
+          })
+        );
 
-        // Create prediction result
         const prediction = {
           text: textValue,
           result: result.final_prediction,
-          confidence: Number((result.sentiment_scores[result.final_prediction] * 100).toFixed(2)),
+          confidence: Number(
+            (result.sentiment_scores[result.final_prediction] * 100).toFixed(2)
+          ),
           categories: categories,
           timestamp: new Date(),
-          rawResponse: result // Keep raw response for reference if needed
+          rawResponse: result,
         };
 
-        // Save prediction to history in the mock service
         this.predictionService.savePredictionToHistory(prediction);
 
-        // Update last prediction and add to history
-        this.lastSinglePrediction = { ...prediction };
-        this.singlePredictionHistory.unshift({ ...prediction });
-
-        // Select the new prediction
-        this.selectedHistoryItem = this.singlePredictionHistory[0];
-        this.historyCurrentPage = 0;
-
-        // Clear the cached chart data to force an update
-        this._cachedChartData = null;
-
-        // Reset form and loading state
-        this.singlePredictionForm.reset();
-        this.isProcessingSinglePrediction = false;
+        this.predictionService.getUserData().subscribe((userData) => {
+          this.singlePredictionHistory = userData.predictionHistory;
+          this.lastSinglePrediction = { ...prediction };
+          this.selectedHistoryItem = this.singlePredictionHistory[0];
+          this.historyCurrentPage = 0;
+          this._cachedChartData = null;
+          this.singlePredictionForm.reset();
+          this.isProcessingSinglePrediction = false;
+        });
       },
       error: (error) => {
-        console.error('Error predicting text:', error);
+        console.error('[DEBUG] Error in predictSingleText:', error);
         this.isProcessingSinglePrediction = false;
-        // Handle error - perhaps show an error message to the user
         alert('Failed to process prediction. Please try again.');
-      }
+      },
     });
   }
 
@@ -462,55 +461,6 @@ export class DashboardComponent implements OnInit {
     }
   }
 
-  // Basic CSV parser (you might want to use a library for more complex CSVs)
-  parseCsvData(csv: string): any[] {
-    const lines = csv.split('\n');
-    const headers = lines[0].split(',');
-    const result: any[] = [];
-
-    for (let i = 1; i < lines.length; i++) {
-      if (lines[i].trim() === '') continue;
-
-      const obj: any = {};
-      const currentLine = lines[i].split(',');
-
-      for (let j = 0; j < headers.length; j++) {
-        obj[headers[j].trim()] = currentLine[j]?.trim();
-      }
-
-      result.push(obj);
-    }
-
-    return result;
-  }
-
-  // Generate chart data from CSV
-  generateChartDataFromCsv(csvData: any[]): ChartData {
-    // Simplified example
-    const firstRow = csvData[0];
-    if (!firstRow) return { labels: [], datasets: [] };
-
-    const keys = Object.keys(firstRow);
-    const labels = keys.slice(1); // Assuming first column is label
-
-    return {
-      labels,
-      datasets: [
-        {
-          label: 'CSV Data',
-          backgroundColor: 'rgba(75,192,192,0.2)',
-          borderColor: 'rgba(75,192,192,1)',
-          pointBackgroundColor: 'rgba(75,192,192,1)',
-          pointBorderColor: '#fff',
-          pointHoverBackgroundColor: '#fff',
-          pointHoverBorderColor: 'rgba(75,192,192,1)',
-          data: csvData.map((row) => parseFloat(row[keys[1]])),
-        },
-      ],
-    };
-  }
-
-
   predictCsvFile(): void {
     const file = this.fileUploadForm.get('csvFile')?.value;
 
@@ -527,13 +477,19 @@ export class DashboardComponent implements OnInit {
           alert('Failed to upload file. Please try again.');
           return;
         }
-        
-        // Add to pending files
-        this.pendingFiles.push({
-          id: response.fileId,
-          name: response.name || file.name,
-          timestamp: new Date(response.timestamp) || new Date()
-        });
+
+        // Check if file already exists in pending files to avoid duplication
+        const existingPendingFileIndex = this.pendingFiles.findIndex(
+          (pf) => pf.id === response.fileId
+        );
+        if (existingPendingFileIndex === -1) {
+          // Only add to pending files if it's not already there
+          this.pendingFiles.push({
+            id: response.fileId,
+            name: response.name || file.name,
+            timestamp: new Date(response.timestamp) || new Date(),
+          });
+        }
 
         // Reset form
         this.fileUploadForm.reset();
@@ -544,26 +500,28 @@ export class DashboardComponent implements OnInit {
       error: (error) => {
         console.error('Error uploading file:', error);
         alert('Failed to upload file. Please try again.');
-      }
+      },
     });
   }
 
   loadFileToVisualization(fileId: string): void {
     // Check if file already exists in visualization tabs
-    const existingFileIndex = this.csvFiles.findIndex(file => file.id === fileId);
-    
+    const existingFileIndex = this.csvFiles.findIndex(
+      (file) => file.id === fileId
+    );
+
     if (existingFileIndex !== -1) {
       // File already exists in tabs, just activate it
       this.activeCsvFile = fileId;
       return;
     }
-    
+
     // Otherwise, fetch file details from API
     this.predictionService.getFileDetails(fileId).subscribe({
       next: (fileDetails) => {
         // Create chart data from the file details
         const chartData = this.generateChartDataFromApiResponse(fileDetails);
-        
+
         // Add to visualization tabs
         const newFile: CsvFile = {
           id: fileId,
@@ -572,22 +530,31 @@ export class DashboardComponent implements OnInit {
           timestamp: new Date(fileDetails.timestamp),
           isDefault: false,
           data: fileDetails.data || [],
-          chartData: chartData
+          chartData: chartData,
         };
-        
+
         this.csvFiles.push(newFile);
         this.activeCsvFile = fileId;
       },
       error: (error) => {
         console.error('Error loading file details:', error);
         alert('Failed to load file details. Please try again.');
-      }
+      },
     });
   }
 
   // Chart data for single prediction
   get singlePredictionChartData(): ChartData {
-    if (!this.lastSinglePrediction) return { datasets: [] };
+    if (!this.lastSinglePrediction) {
+      // Return a valid empty chart structure 
+      return { 
+        labels: [], 
+        datasets: [{
+          data: [],
+          backgroundColor: []
+        }]
+      };
+    }
 
     // Return cached data if prediction hasn't changed
     if (
@@ -604,9 +571,11 @@ export class DashboardComponent implements OnInit {
         {
           data: this.lastSinglePrediction.categories.map((c) => c.value),
           backgroundColor: [
-            'rgba(255, 99, 132, 0.6)',
-            'rgba(54, 162, 235, 0.6)',
-            'rgba(255, 206, 86, 0.6)',
+            'rgba(25, 135, 84, 0.8)', // Very Positive - green
+            'rgba(13, 202, 240, 0.8)', // Slightly Positive - info blue
+            'rgba(108, 117, 125, 0.8)', // Neutral - gray
+            'rgba(255, 193, 7, 0.8)', // Slightly Negative - amber
+            'rgba(220, 53, 69, 0.8)', // Very Negative - red
           ],
           borderWidth: 1,
         },
@@ -705,10 +674,8 @@ export class DashboardComponent implements OnInit {
 
   formatCategoriesForTooltip(categories: any[]): string {
     if (!categories || !Array.isArray(categories)) return 'No categories';
-    
-    return categories
-      .map(cat => `${cat.name}: ${cat.value}%`)
-      .join('\n');
+
+    return categories.map((cat) => `${cat.name}: ${cat.value}%`).join('\n');
   }
 
   // Helper method to get color for category
@@ -716,18 +683,18 @@ export class DashboardComponent implements OnInit {
     const colorMap: Record<string, string> = {
       'Very Negative': 'rgba(220, 53, 69, 0.8)',
       'Slightly Negative': 'rgba(255, 193, 7, 0.8)',
-      'Neutral': 'rgba(108, 117, 125, 0.8)',
+      Neutral: 'rgba(108, 117, 125, 0.8)',
       'Slightly Positive': 'rgba(13, 202, 240, 0.8)',
-      'Very Positive': 'rgba(25, 135, 84, 0.8)'
+      'Very Positive': 'rgba(25, 135, 84, 0.8)',
     };
-    
+
     return colorMap[categoryName] || 'gray';
   }
 
   showCategoriesModal(categories: any[]): void {
     this.selectedCategories = categories;
     this.showCategoryModal = true;
-    
+
     console.log('Categories:', categories);
     setTimeout(() => {
       this.showCategoryModal = false;
@@ -735,141 +702,236 @@ export class DashboardComponent implements OnInit {
   }
 
   pollFileStatus(fileId: string): void {
-    // Clear any existing subscription
-    if (this.statusCheckSubscription) {
-      this.statusCheckSubscription.unsubscribe();
+    // Cancel existing subscription for this file if it exists
+    if (this.fileStatusSubscriptions.has(fileId)) {
+      this.fileStatusSubscriptions.get(fileId)?.unsubscribe();
     }
 
     // Set up initial polling variable
     let completedOrError = false;
 
-    // Poll every 2 seconds
-    this.statusCheckSubscription = interval(2000).subscribe(() => {
-      // Don't check if we already know it's completed
-      if (completedOrError) return;
+    // Start new polling subscription
+    const subscription = interval(2000)
+      .pipe(takeWhile(() => !completedOrError))
+      .subscribe({
+        next: () => {
+          this.predictionService.checkFileStatus(fileId).subscribe({
+            next: (status) => {
+              if (status.status === 'completed') {
+                // File is now completed
+                completedOrError = true;
 
-      this.predictionService.checkFileStatus(fileId).subscribe({
-        next: (status) => {
-          if (status.status === 'completed') {
-            // File is now completed
-            completedOrError = true;
-            
-            // Remove from pending files
-            this.pendingFiles = this.pendingFiles.filter(file => file.id !== fileId);
-            
-            // Refresh the files list to get the new completed file
-            this.refreshFilesList();
-            
-            // Clean up the subscription
-            if (this.statusCheckSubscription) {
-              this.statusCheckSubscription.unsubscribe();
-              this.statusCheckSubscription = null;
-            }
-          } else if (status.status === 'error') {
-            // Handle error state
-            completedOrError = true;
-            this.pendingFiles = this.pendingFiles.filter(file => file.id !== fileId);
-            alert(`Processing of file failed: ${fileId}`);
-            
-            // Clean up the subscription
-            if (this.statusCheckSubscription) {
-              this.statusCheckSubscription.unsubscribe();
-              this.statusCheckSubscription = null;
-            }
-          }
-          // For 'pending' status, we just keep polling
+                // Remove from pending files
+                this.pendingFiles = this.pendingFiles.filter(
+                  (file) => file.id !== fileId
+                );
+
+                // Refresh the files list to get the new completed file
+                this.refreshFilesList();
+
+                // Clean up the subscription
+                if (this.fileStatusSubscriptions.has(fileId)) {
+                  this.fileStatusSubscriptions.get(fileId)?.unsubscribe();
+                  this.fileStatusSubscriptions.delete(fileId);
+                }
+              } else if (status.status === 'error') {
+                // Handle error state
+                completedOrError = true;
+                this.pendingFiles = this.pendingFiles.filter(
+                  (file) => file.id !== fileId
+                );
+
+                // Use safe access for the message property since it might not exist
+                alert(
+                  `Processing of file failed: ${
+                    (status as any).message || 'Unknown error'
+                  }`
+                );
+
+                // Clean up the subscription
+                if (this.fileStatusSubscriptions.has(fileId)) {
+                  this.fileStatusSubscriptions.get(fileId)?.unsubscribe();
+                  this.fileStatusSubscriptions.delete(fileId);
+                }
+              }
+              // For 'pending' status, we just keep polling
+            },
+            error: (error) => {
+              console.error('Error checking file status:', error);
+              completedOrError = true; // Stop polling on error
+
+              // Clean up the subscription
+              if (this.fileStatusSubscriptions.has(fileId)) {
+                this.fileStatusSubscriptions.get(fileId)?.unsubscribe();
+                this.fileStatusSubscriptions.delete(fileId);
+              }
+            },
+          });
         },
-        error: (error) => {
-          console.error('Error checking file status:', error);
-          completedOrError = true; // Stop polling on error
-          
-          // Clean up the subscription
-          if (this.statusCheckSubscription) {
-            this.statusCheckSubscription.unsubscribe();
-            this.statusCheckSubscription = null;
-          }
-        }
       });
-    });
+
+    // Store the subscription
+    this.fileStatusSubscriptions.set(fileId, subscription);
   }
 
   refreshFilesList(): void {
     this.predictionService.getFiles().subscribe({
       next: (response) => {
-        // Update pending files
-        this.pendingFiles = response.pendingFiles.map(file => ({
-          id: file.id,
-          name: file.name,
-          timestamp: new Date(file.timestamp)
-        }));
-        
+        if (!response) {
+          console.error('Received null response from getFiles()');
+          return;
+        }
+
+        // Update pending files - ensure we don't have duplicates
+        const pendingFileIds = new Set(
+          this.pendingFiles.map((file) => file.id)
+        );
+
+        // Only add files that aren't already in our pending list
+        if (response.pendingFiles && Array.isArray(response.pendingFiles)) {
+          response.pendingFiles.forEach((file) => {
+            if (!pendingFileIds.has(file.id)) {
+              this.pendingFiles.push({
+                id: file.id,
+                name: file.name,
+                timestamp: new Date(file.timestamp),
+              });
+            }
+          });
+
+          // Also ensure we remove any files that are no longer pending
+          const apiPendingFileIds = new Set(
+            response.pendingFiles.map((file: any) => file.id)
+          );
+          this.pendingFiles = this.pendingFiles.filter((file) =>
+            apiPendingFileIds.has(file.id)
+          );
+        }
+
         // Update completed files
-        this.myFiles = response.completedFiles.map(file => ({
-          id: file.id,
-          name: file.name,
-          status: 'completed',
-          timestamp: new Date(file.timestamp),
-          isDefault: false,
-          data: [], // Empty initially, will be loaded when file is selected
-          chartData: undefined // Will be generated when data is loaded
-        }));
-        
+        if (response.completedFiles && Array.isArray(response.completedFiles)) {
+          this.myFiles = response.completedFiles.map((file) => ({
+            id: file.id,
+            name: file.name,
+            status: 'completed',
+            timestamp: new Date(file.timestamp),
+            isDefault: false,
+            data: [], // Empty initially, will be loaded when file is selected
+            chartData: undefined, // Will be generated when data is loaded
+          }));
+        }
+
         // Update filtered files
         this.filterFiles();
-        
+
         // Trigger change detection to update the UI
         this.cdr.detectChanges();
       },
       error: (error) => {
         console.error('Error fetching files:', error);
         this.cdr.detectChanges();
-      }
+      },
     });
   }
 
+  // Also fix the generateChartDataFromApiResponse method to handle potential errors
   generateChartDataFromApiResponse(fileDetails: any): ChartData {
+    if (!fileDetails || !fileDetails.data) {
+      // Return empty chart data when no details are available
+      return {
+        labels: [],
+        datasets: [{
+          label: 'No Data Available',
+          backgroundColor: [],
+          borderColor: 'rgba(179,181,198,1)',
+          data: []
+        }]
+      };
+    }
+
     // Assuming the API returns data with sentiment categories and counts
     const sentimentCounts: Record<string, number> = {
-      'Very Positive': 0, 
-      'Slightly Positive': 0, 
-      'Neutral': 0, 
-      'Slightly Negative': 0, 
-      'Very Negative': 0
+      'Very Positive': 0,
+      'Slightly Positive': 0,
+      Neutral: 0,
+      'Slightly Negative': 0,
+      'Very Negative': 0,
     };
-    
+
     // Count prediction categories
-    if (fileDetails.data && Array.isArray(fileDetails.data)) {
+    if (Array.isArray(fileDetails.data)) {
       fileDetails.data.forEach((item: any) => {
-        const prediction = item.Prediction;
+        const prediction = item?.Prediction;
         // Check if prediction exists and is a key in sentimentCounts
-        if (prediction && Object.prototype.hasOwnProperty.call(sentimentCounts, prediction)) {
+        if (
+          prediction &&
+          Object.prototype.hasOwnProperty.call(sentimentCounts, prediction)
+        ) {
           sentimentCounts[prediction as keyof typeof sentimentCounts]++;
         }
       });
     }
-    
+
     return {
       labels: Object.keys(sentimentCounts),
-      datasets: [{
-        label: 'Sentiment Distribution',
-        backgroundColor: [
-          'rgba(25, 135, 84, 0.8)',      // Very Positive - green
-          'rgba(13, 202, 240, 0.8)',     // Slightly Positive - info blue
-          'rgba(108, 117, 125, 0.8)',    // Neutral - gray
-          'rgba(255, 193, 7, 0.8)',      // Slightly Negative - amber
-          'rgba(220, 53, 69, 0.8)',      // Very Negative - red
-        ],
-        borderColor: 'rgba(179,181,198,1)',
-        data: Object.values(sentimentCounts)
-      }]
+      datasets: [
+        {
+          label: 'Sentiment Distribution',
+          backgroundColor: [
+            'rgba(25, 135, 84, 0.8)', // Very Positive - green
+            'rgba(13, 202, 240, 0.8)', // Slightly Positive - info blue
+            'rgba(108, 117, 125, 0.8)', // Neutral - gray
+            'rgba(255, 193, 7, 0.8)', // Slightly Negative - amber
+            'rgba(220, 53, 69, 0.8)', // Very Negative - red
+          ],
+          borderColor: 'rgba(179,181,198,1)',
+          data: Object.values(sentimentCounts),
+        },
+      ],
     };
   }
 
-
   ngOnDestroy(): void {
-    if (this.statusCheckSubscription) {
-      this.statusCheckSubscription.unsubscribe();
-    }
+    // Clean up all subscriptions
+    this.fileStatusSubscriptions.forEach((sub) => sub.unsubscribe());
+    this.fileStatusSubscriptions.clear();
   }
 
+  navigateToTab(tab: string): void {
+    this.router.navigate(['/dashboard', tab]);
+  }
+
+  // Add this method
+  navigateToSubscription(): void {
+    console.log('Navigating to subscription page...');
+    
+    // Use the router to navigate programmatically
+    this.router.navigate(['/subscription']).then(success => {
+      // Log whether navigation was successful for debugging
+      console.log('Navigation success:', success);
+      
+      if (!success) {
+        // If navigation fails, try an alternative approach
+        console.error('Navigation failed, trying window.location');
+        window.location.href = '/subscription';
+      }
+    }).catch(err => {
+      console.error('Navigation error:', err);
+    });
+  }
+  
+  get hasBulkAccess(): boolean {
+    return this.subscriptionService.hasBulkAccess();
+  }
+
+  switchTab(tab: string): void {
+    // Always allow switching to the tab, even without access
+    this.activeTab = tab;
+    
+    // Navigate without reloading the component
+    this.router.navigate(['/dashboard', tab], { 
+      skipLocationChange: false,
+      replaceUrl: false
+    });
+  }
 }
