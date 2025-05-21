@@ -3,11 +3,19 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 0,
+            "activePatchIndex": 2,
             "patches": [
                 {
                     "date": 1747819915331,
                     "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1747819987409,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -8,11 +8,19 @@\n \r\n # Node\r\n /node_modules\r\n npm-debug.log\r\n+<<<<<<< HEAD\r\n yarn-debug.log\r\n yarn-error.log\r\n \r\n+=======\r\n+yarn-error.log\r\n+\r\n+# profiling files\r\n+chrome-profiler-events*.json\r\n+\r\n+>>>>>>> 36f6592783ac8c6145d647f35893dd92d346d4ac\r\n # IDEs and editors\r\n .idea/\r\n .project\r\n .classpath\r\n@@ -29,8 +37,9 @@\n !.vscode/extensions.json\r\n .history/*\r\n \r\n # Miscellaneous\r\n+.npmrc\r\n /.angular/cache\r\n .sass-cache/\r\n /connect.lock\r\n /coverage\r\n"
+                },
+                {
+                    "date": 1747819995078,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -0,0 +1,47 @@\n+# See http://help.github.com/ignore-files/ for more about ignoring files.\r\n+\r\n+# Compiled output\r\n+/dist\r\n+/tmp\r\n+/out-tsc\r\n+/bazel-out\r\n+\r\n+# Node\r\n+/node_modules\r\n+npm-debug.log\r\n+yarn-debug.log\r\n+yarn-error.log\r\n+\r\n+# profiling files\r\n+chrome-profiler-events*.json\r\n+\r\n+# IDEs and editors\r\n+.idea/\r\n+.project\r\n+.classpath\r\n+.c9/\r\n+*.launch\r\n+.settings/\r\n+*.sublime-workspace\r\n+\r\n+# Visual Studio Code\r\n+.vscode/*\r\n+!.vscode/settings.json\r\n+!.vscode/tasks.json\r\n+!.vscode/launch.json\r\n+!.vscode/extensions.json\r\n+.history/*\r\n+\r\n+# Miscellaneous\r\n+.npmrc\r\n+/.angular/cache\r\n+.sass-cache/\r\n+/connect.lock\r\n+/coverage\r\n+/libpeerconnection.log\r\n+testem.log\r\n+/typings\r\n+\r\n+# System files\r\n+.DS_Store\r\n+Thumbs.db\r\n"
                 }
             ],
             "date": 1747819915331,
