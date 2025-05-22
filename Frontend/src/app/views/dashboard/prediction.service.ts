@@ -14,14 +14,15 @@ import {
 } from './datafiles';
 import { PredictionResponse } from '../dashboard/prediction-response.interface';
 import { UploadCsvResponse } from './upload-csv-response.interface';
+import { RegisterResponse } from './register-response.interface';
 
 @Injectable({
   providedIn: 'root'
 })
 export class PredictionService {
   private static readonly BULK_PREDICT_ENDPOINT = '/bulk_predict'; // Static constant for the endpoint
-  private apiUrl = environment.apiUrl || 'https://api.yourdomain.com';
-  private useMockData = true; // Set to false to use real API
+  private apiUrl = 'http://127.0.0.1:5000'; // Replace with your actual API URL
+  private useMockData = false; // Set to false to use real API
   private authToken: string | null = null;
 
   constructor(private http: HttpClient) {
@@ -47,13 +48,11 @@ export class PredictionService {
     );
   }
 
-  register(email: string, username: string, password: string): Observable<any> {
-    if (this.useMockData) {
-      return this.mockRegister(email, username, password);
-    }
-    
-    const endpoint = `${this.apiUrl}/auth/register`;
-    return this.http.post<any>(endpoint, { email, username, password }).pipe(
+  register(email: string, username: string, password: string): Observable<RegisterResponse> {
+    const endpoint = `${this.apiUrl}/signup`;
+    console.log('Register payload:', { email, username, password }); // Log the payload
+    return this.http.post<RegisterResponse>(endpoint, { email, username, password }).pipe(
+      tap(response => console.log('Registration response:', response)),
       catchError(this.handleError)
     );
   }
@@ -94,39 +93,14 @@ export class PredictionService {
     }
   }
 
-  private mockRegister(email: string, username: string, password: string): Observable<any> {
-    // Check if username already exists in our mock data
-    const validUsers = [
-      { username: 'testuser', password: 'password123', email: 'test@example.com' },
-      { username: 'admin', password: 'admin123', email: 'admin@example.com' }
-    ];
-
-    if (validUsers.some(u => u.username === username)) {
-      return throwError(() => new Error('Username already exists')).pipe(delay(800));
-    }
-
-    if (validUsers.some(u => u.email === email)) {
-      return throwError(() => new Error('Email already registered')).pipe(delay(800));
-    }
-
-    // Registration successful
-    return of({
-      success: true,
-      message: 'Registration successful'
-    }).pipe(delay(800)); // Simulate network delay
+  private mockRegister(email: string, username: string, password: string): Observable<RegisterResponse> {
+    return of({ message: 'User registered successfully (mock)' }).pipe(delay(500));
   }
 
   // Error handling
-  private handleError(error: any) {
-    let errorMessage = '';
-    if (error.error instanceof ErrorEvent) {
-      // Client-side error
-      errorMessage = `Error: ${error.error.message}`;
-    } else {
-      // Server-side error
-      errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
-    }
-    return throwError(() => new Error(errorMessage));
+  private handleError(error: any): Observable<never> {
+    console.error('An error occurred:', error);
+    return throwError(() => new Error('Something went wrong. Please try again later.'));
   }
 
   // Get headers with auth token

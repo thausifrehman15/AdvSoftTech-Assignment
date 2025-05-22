@@ -14,12 +14,12 @@ def save_users(users):
     with open(USERS_FILE, "w") as f:
         json.dump(users, f, indent=2)
 
-def register_user(username, password):
+def register_user(username, password, email):
     users = load_users()
     if username in users:
         return False, "User already exists"
     
-    hashed_password = generate_password_hash(password)
+    hashed_password = generate_password_hash(password,  method="pbkdf2:sha256")
     users[username] = hashed_password
     save_users(users)
     return True, "User registered successfully"
