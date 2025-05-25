@@ -1,0 +1,22 @@
+{
+    "sourceFile": "Frontend/src/app/interfaces/prediction/prediction.interface.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 1,
+            "patches": [
+                {
+                    "date": 1747917275741,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1747917705142,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -16,9 +16,9 @@\n   sentiment: string;\r\n   sentimentScore: number;\r\n   categories: Category[];\r\n }\r\n-a\r\n+\r\n // For historical records\r\n export interface PredictionHistoryItem extends PredictionResponse {\r\n   userId?: string;\r\n }\n\\ No newline at end of file\n"
+                }
+            ],
+            "date": 1747917275741,
+            "name": "Commit-0",
+            "content": "// Single text prediction interfaces\r\nexport interface PredictionRequest {\r\n  text: string;\r\n}\r\n\r\nexport interface Category {\r\n  name: string;\r\n  score: number;\r\n  color?: string;\r\n}\r\n\r\nexport interface PredictionResponse {\r\n  id: string;\r\n  text: string;\r\n  timestamp: string; // ISO date string\r\n  sentiment: string;\r\n  sentimentScore: number;\r\n  categories: Category[];\r\n}\r\n\r\n// For historical records\r\nexport interface PredictionHistoryItem extends PredictionResponse {\r\n  userId?: string;\r\n}"
+        }
+    ]
+}

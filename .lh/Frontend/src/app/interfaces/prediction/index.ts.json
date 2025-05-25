@@ -1,0 +1,18 @@
+{
+    "sourceFile": "Frontend/src/app/interfaces/prediction/index.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1747917291897,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1747917291897,
+            "name": "Commit-0",
+            "content": "export * from './prediction.interface';\r\nexport * from './file.interface';\r\nexport * from './user.interface';"
+        }
+    ]
+}

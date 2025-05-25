@@ -1,0 +1,46 @@
+{
+    "sourceFile": "Frontend/src/app/app.config.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 7,
+            "patches": [
+                {
+                    "date": 1747918084086,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1747918113269,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,16 +1,37 @@\n import { ApplicationConfig, importProvidersFrom } from '@angular/core';\r\n-import { provideRouter } from '@angular/router';\r\n-import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';\r\n+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';\r\n+import {\r\n+  provideRouter,\r\n+  withEnabledBlockingInitialNavigation,\r\n+  withHashLocation,\r\n+  withInMemoryScrolling,\r\n+  withRouterConfig,\r\n+  withViewTransitions\r\n+} from '@angular/router';\r\n \r\n+import { DropdownModule, SidebarModule } from '@coreui/angular';\r\n+import { IconSetService } from '@coreui/icons-angular';\r\n import { routes } from './app.routes';\r\n-import { provideClientHydration } from '@angular/platform-browser';\r\n-import { AuthInterceptor } from './interceptors/auth.interceptor';\r\n+import { provideHttpClient } from '@angular/common/http';\r\n \r\n export const appConfig: ApplicationConfig = {\r\n   providers: [\r\n-    provideRouter(routes),\r\n-    provideClientHydration(),\r\n-    importProvidersFrom(HttpClientModule),\r\n-    { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true }\r\n+    provideRouter(routes,\r\n+      withRouterConfig({\r\n+        onSameUrlNavigation: 'reload'\r\n+      }),\r\n+      withInMemoryScrolling({\r\n+        scrollPositionRestoration: 'top',\r\n+        anchorScrolling: 'enabled'\r\n+      }),\r\n+      withEnabledBlockingInitialNavigation(),\r\n+      withViewTransitions(),\r\n+      withHashLocation()\r\n+    ),\r\n+    importProvidersFrom(SidebarModule, DropdownModule),\r\n+    IconSetService,\r\n+    provideAnimationsAsync(),\r\n+    provideHttpClient(),\r\n+    \r\n   ]\r\n };\r\n"
+                },
+                {
+                    "date": 1747918121085,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -31,7 +31,10 @@\n     importProvidersFrom(SidebarModule, DropdownModule),\r\n     IconSetService,\r\n     provideAnimationsAsync(),\r\n     provideHttpClient(),\r\n-    \r\n+    provideClientHydration(),\r\n+    importProvidersFrom(HttpClientModule),\r\n+    { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true }\r\n+\r\n   ]\r\n };\r\n"
+                },
+                {
+                    "date": 1747918126532,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -11,9 +11,9 @@\n \r\n import { DropdownModule, SidebarModule } from '@coreui/angular';\r\n import { IconSetService } from '@coreui/icons-angular';\r\n import { routes } from './app.routes';\r\n-import { provideHttpClient } from '@angular/common/http';\r\n+import { HTTP_INTERCEPTORS, provideHttpClient } from '@angular/common/http';\r\n \r\n export const appConfig: ApplicationConfig = {\r\n   providers: [\r\n     provideRouter(routes,\r\n"
+                },
+                {
+                    "date": 1747918131771,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -12,8 +12,10 @@\n import { DropdownModule, SidebarModule } from '@coreui/angular';\r\n import { IconSetService } from '@coreui/icons-angular';\r\n import { routes } from './app.routes';\r\n import { HTTP_INTERCEPTORS, provideHttpClient } from '@angular/common/http';\r\n+import { AuthInterceptor } from './interceptors/auth.interceptor';\r\n+import { provideClientHydration } from '@angular/platform-browser';\r\n \r\n export const appConfig: ApplicationConfig = {\r\n   providers: [\r\n     provideRouter(routes,\r\n"
+                },
+                {
+                    "date": 1747918139944,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -11,9 +11,9 @@\n \r\n import { DropdownModule, SidebarModule } from '@coreui/angular';\r\n import { IconSetService } from '@coreui/icons-angular';\r\n import { routes } from './app.routes';\r\n-import { HTTP_INTERCEPTORS, provideHttpClient } from '@angular/common/http';\r\n+import { HTTP_INTERCEPTORS, HttpClientModule, provideHttpClient } from '@angular/common/http';\r\n import { AuthInterceptor } from './interceptors/auth.interceptor';\r\n import { provideClientHydration } from '@angular/platform-browser';\r\n \r\n export const appConfig: ApplicationConfig = {\r\n@@ -36,7 +36,6 @@\n     provideHttpClient(),\r\n     provideClientHydration(),\r\n     importProvidersFrom(HttpClientModule),\r\n     { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true }\r\n-\r\n   ]\r\n };\r\n"
+                },
+                {
+                    "date": 1748190534631,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -11,11 +11,9 @@\n \r\n import { DropdownModule, SidebarModule } from '@coreui/angular';\r\n import { IconSetService } from '@coreui/icons-angular';\r\n import { routes } from './app.routes';\r\n-import { HTTP_INTERCEPTORS, HttpClientModule, provideHttpClient } from '@angular/common/http';\r\n-import { AuthInterceptor } from './interceptors/auth.interceptor';\r\n-import { provideClientHydration } from '@angular/platform-browser';\r\n+import { provideHttpClient } from '@angular/common/http';\r\n \r\n export const appConfig: ApplicationConfig = {\r\n   providers: [\r\n     provideRouter(routes,\r\n@@ -33,9 +31,8 @@\n     importProvidersFrom(SidebarModule, DropdownModule),\r\n     IconSetService,\r\n     provideAnimationsAsync(),\r\n     provideHttpClient(),\r\n-    provideClientHydration(),\r\n-    importProvidersFrom(HttpClientModule),\r\n-    { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true }\r\n+        { provide: LocationStrategy, useClass: HashLocationStrategy } // Add this provider\r\n+\r\n   ]\r\n };\r\n"
+                },
+                {
+                    "date": 1748190541107,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -12,8 +12,9 @@\n import { DropdownModule, SidebarModule } from '@coreui/angular';\r\n import { IconSetService } from '@coreui/icons-angular';\r\n import { routes } from './app.routes';\r\n import { provideHttpClient } from '@angular/common/http';\r\n+import { LocationStrategy, HashLocationStrategy } from '@angular/common';\r\n \r\n export const appConfig: ApplicationConfig = {\r\n   providers: [\r\n     provideRouter(routes,\r\n@@ -31,8 +32,7 @@\n     importProvidersFrom(SidebarModule, DropdownModule),\r\n     IconSetService,\r\n     provideAnimationsAsync(),\r\n     provideHttpClient(),\r\n-        { provide: LocationStrategy, useClass: HashLocationStrategy } // Add this provider\r\n-\r\n+    { provide: LocationStrategy, useClass: HashLocationStrategy } // Add this provider\r\n   ]\r\n };\r\n"
+                }
+            ],
+            "date": 1747918084086,
+            "name": "Commit-0",
+            "content": "import { ApplicationConfig, importProvidersFrom } from '@angular/core';\r\nimport { provideRouter } from '@angular/router';\r\nimport { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';\r\n\r\nimport { routes } from './app.routes';\r\nimport { provideClientHydration } from '@angular/platform-browser';\r\nimport { AuthInterceptor } from './interceptors/auth.interceptor';\r\n\r\nexport const appConfig: ApplicationConfig = {\r\n  providers: [\r\n    provideRouter(routes),\r\n    provideClientHydration(),\r\n    importProvidersFrom(HttpClientModule),\r\n    { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true }\r\n  ]\r\n};\r\n"
+        }
+    ]
+}

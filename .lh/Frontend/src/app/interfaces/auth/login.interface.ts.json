@@ -1,0 +1,18 @@
+{
+    "sourceFile": "Frontend/src/app/interfaces/auth/login.interface.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1747912595028,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1747912595028,
+            "name": "Commit-0",
+            "content": "export interface LoginRequest {\r\n  username: string;\r\n  password: string;\r\n}\r\n\r\nexport interface LoginResponse {\r\n  token: string;\r\n  user: {\r\n    username: string;\r\n    email: string;\r\n  };\r\n}"
+        }
+    ]
+}
