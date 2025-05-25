@@ -39,7 +39,7 @@ jobs:
       - name: Build Angular project
         run: |
           cd Frontend
-          npm run build -- --configuration production --base-href=/AdvSoftTech-Assignment/ --legacy-peer-deps
+          npm run build -- --configuration production --base-href=/AdvSoftTech-Assignment/
 
       - name: Debug directory structure
         run: |
