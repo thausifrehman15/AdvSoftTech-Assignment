@@ -15,6 +15,7 @@ import {
 import { PredictionResponse } from '../dashboard/prediction-response.interface';
 import { UploadCsvResponse } from './upload-csv-response.interface';
 import { RegisterResponse } from './register-response.interface';
+import { LoginResponse } from './login-response.interface';
 
 @Injectable({
   providedIn: 'root'
@@ -31,20 +32,22 @@ export class PredictionService {
   }
 
   // Authentication methods
-  login(username: string, password: string): Observable<any> {
-    if (this.useMockData) {
-      return this.mockLogin(username, password);
-    }
-    
-    const endpoint = `${this.apiUrl}/auth/login`;
-    return this.http.post<any>(endpoint, { username, password }).pipe(
+  login(username: string, password: string): Observable<LoginResponse> {
+    const endpoint = `${this.apiUrl}/login`;
+    console.log('API URL:', endpoint); // Log the API URL
+    console.log('Login payload:', { username, password }); // Log the payload
+    return this.http.post<LoginResponse>(endpoint, { username, password }).pipe(
       tap(response => {
+        console.log('Login response:', response); // Log the full response
         if (response && response.token) {
-          this.authToken = response.token;
-          localStorage.setItem('authToken', response.token); // Using direct value instead of this.authToken
+          localStorage.setItem('authToken', response.token); // Save token to local storage
+          console.log('Token saved:', response.token);
         }
       }),
-      catchError(this.handleError)
+      catchError(error => {
+        console.error('Login error:', error);
+        return throwError(() => new Error('Login failed. Please try again.'));
+      })
     );
   }
 
