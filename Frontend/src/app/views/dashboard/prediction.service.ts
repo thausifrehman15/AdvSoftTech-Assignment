@@ -1,34 +1,19 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Observable, of, throwError } from 'rxjs';
 import { catchError, delay, map, tap } from 'rxjs/operators';
 import { environment } from '../../environment/environment';
-import {
-  mockPredictText,
-  mockUploadCsvFile,
-  mockGetFiles,
-  mockGetFileDetails,
-  mockCheckFileStatus,
-  mockGetUserData,
-  addPredictionToHistory
-} from './datafiles';
-import { PredictionResponse } from '../dashboard/prediction-response.interface';
-import { UploadCsvResponse } from './upload-csv-response.interface';
-import { RegisterResponse } from './register-response.interface';
+import { addPredictionToHistory, mockCheckFileStatus, mockGetFileDetails, mockGetFiles, mockGetUserData, mockPredictText, mockUploadCsvFile } from './datafiles';
+import { CheckSubscriptionResponse } from './check-subscription-response.interface';
 import { LoginResponse } from './login-response.interface';
-//import { MessageResponse } from './notify-response.interface';
-import { CheckSubscriptionResponse } from './check-subscription-response.interface'; 
-import { HttpParams } from '@angular/common/http'; // For sending URL query parameters
-
-
+import { RegisterResponse, PredictionResponse } from './prediction.interface';
 
 @Injectable({
   providedIn: 'root'
 })
 export class PredictionService {
-  private static readonly BULK_PREDICT_ENDPOINT = '/bulk_predict'; // Static constant for the endpoint
-  private apiUrl = 'http://127.0.0.1:5000'; // Replace with your actual API URL
-  private useMockData = false; // Set to false to use real API
+  private apiUrl = environment.apiUrl || 'https://api.yourdomain.com';
+  private useMockData = true;
   private authToken: string | null = null;
 
   constructor(private http: HttpClient) {
@@ -318,4 +303,20 @@ checkCurrentUserSubscription(): Observable<CheckSubscriptionResponse> {
     }
     // If using real API, the history would be saved server-side
   }
+
+  downloadFile(fileId: string): Observable<any> {
+    if (this.useMockData) {
+      return of({ success: true, message: 'File downloaded successfully' }).pipe(delay(800));
+    }
+
+    const endpoint = `${this.apiUrl}/files/${fileId}/download`;
+    return this.http.get(endpoint, { responseType: 'blob', headers: this.getAuthHeaders() }).pipe(
+      tap(response => {
+        // Handle successful download
+        console.log('File downloaded successfully:', response);
+      }),
+      catchError(this.handleError)
+    );
+  }
+
 }
