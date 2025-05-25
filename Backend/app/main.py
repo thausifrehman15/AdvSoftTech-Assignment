@@ -10,9 +10,17 @@ import requests  # ✅ For internal API call
 import json  # For handling JSON files
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask_cors import CORS  # Import CORS
+from flask_jwt_extended import create_access_token, JWTManager
+
 
 app = Flask(__name__, static_url_path='/static', static_folder='static')
 CORS(app)  # Enable CORS for all routes
+
+# --- BEGIN JWT CONFIGURATION ---
+app.config["JWT_SECRET_KEY"] = "login-token-test"  # IMPORTANT: Change this to a strong, random secret!
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = False  # Disable token expiration for simplicity; adjust as needed
+jwt = JWTManager(app) # Initialize Flask-JWT-Extended with your app
+# --- END JWT CONFIGURATION ---
 
 # Add these lines after creating the Flask app
 SWAGGER_URL = '/api/docs'
@@ -65,12 +73,18 @@ def login():
     username = data.get("username")
     password = data.get("password")
 
-    if not username or not password:
-        return jsonify({"error": "Username and Password are Required"}), 400
-
     success, message = login_user(username, password)
-    status = 200 if success else 401
-    return jsonify({"message": message}), status
+
+    if success:
+        # If credentials are valid, create an access token.
+        access_token = create_access_token(identity=username)
+        return jsonify({
+            "message": message, 
+            "token": access_token
+        }), 200
+    else:
+        # Credentials invalid
+        return jsonify({"message": message}), 401
 
 @app.route("/notify", methods=["GET"])
 def notify():

@@ -66,8 +66,12 @@ export class PredictionService {
     localStorage.removeItem('authToken');
   }
 
+  //changed the isLoggedIn method to ensure it checks the latest token from localStorage
   isLoggedIn(): boolean {
-    return !!this.authToken;
+    this.authToken = localStorage.getItem('authToken'); // Ensure it's fresh
+    const loggedIn = !!this.authToken;
+    console.log(`Service ISLOGGEDIN: authToken from localStorage: '${this.authToken}', Result: ${loggedIn}`);
+    return loggedIn;
   }
 
   private mockLogin(username: string, password: string): Observable<any> {

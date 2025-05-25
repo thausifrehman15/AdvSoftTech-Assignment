@@ -108,6 +108,7 @@ export class LoginComponent implements OnInit {
         console.log('Login response:', response); // Log the full response
         if (response && response.token) {
           localStorage.setItem('authToken', response.token); // Save token to local storage
+          this.authToken = response.token; // Store token in component variable
           console.log('Token saved:', response.token);
         }
       }),
