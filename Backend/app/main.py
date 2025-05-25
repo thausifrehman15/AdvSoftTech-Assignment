@@ -1,3 +1,4 @@
+from pathlib import Path
 from flask import Flask, request, jsonify
 from flask_cors import CORS  # Add this import
 from app.model_loader import load_model, predict_sentiment  # <-- Only this!
