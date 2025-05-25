@@ -1,11 +1,9 @@
-from datetime import datetime, timedelta
-import jwt
-import json
-from pathlib import Path
 from flask import Flask, request, jsonify
-from flask_cors import CORS  # Add this import
-from app.model_loader import load_model, predict_sentiment  # <-- Only this!
+import os
+from app.model_loader import load_model
+from app.predictor import predict_sentiment
 from app.auth import register_user, login_user
+from app.email_utils import send_email_with_attachment  # ✅ NEW
 import pandas as pd
 import io
 import requests  # ✅ For internal API call
@@ -16,6 +14,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from flask_cors import CORS  # Add CORS support
 
+# Initialize the app and load model
 app = Flask(__name__)
 
 # Add CORS to allow frontend requests
@@ -33,7 +32,7 @@ swaggerui_blueprint = get_swaggerui_blueprint(
 app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 
 # Load model on startup
-analyzer, labels = load_model()
+tokenizer, model, labels = load_model()
 
 SECRET_KEY = 'your_secret_key'  # This should be securely stored in your config
 
@@ -249,6 +248,7 @@ def bulk_predict():
         return jsonify({"error": "No file part in the request"}), 400
 
     file = request.files['file']
+
     if file.filename == '':
         return jsonify({"error": "No file selected"}), 400
 
