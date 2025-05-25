@@ -35,6 +35,7 @@ import { ChartOptions } from 'chart.js';
 import {   SAMPLE_PREDICTION_HISTORY,SAMPLE_CSV_FILES,SAMPLE_PENDING_FILES,SAMPLE_MY_FILES} from './datafiles';
 import { PredictionService } from './prediction.service';
 import { SubscriptionService } from '../../services/subscription.service';
+import { CheckSubscriptionResponse } from './check-subscription-response.interface';
 import { filter, interval, Subscription, takeWhile } from 'rxjs';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 
@@ -103,6 +104,13 @@ export class DashboardComponent implements OnInit {
   public historyCurrentPage: number = 0;
   public selectedCategories: any[] = [];
   public showCategoryModal: boolean = false;
+
+  public isUserSubscribed: boolean = false; // NEW property to track subscription
+  public loggedInUsername: string | null = null; // NEW property to store username
+  public userEmailForBulk: string = ''; // Property to bind to an email input for bulk
+                                        // (Or get email associated with loggedInUsername if available)
+  public isLoadingBulkUpload: boolean = false; // Specific loading for bulk
+
 
   // Track the last prediction for chart display
   public lastSinglePrediction: {
@@ -288,6 +296,8 @@ export class DashboardComponent implements OnInit {
       // Force change detection to update UI without full reload
       this.cdr.detectChanges();
     });
+
+    
 
     this.predictionService.getUserData().subscribe({
       next: (userData) => {

@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { Observable, of, throwError } from 'rxjs';
 import { catchError, delay, map, tap } from 'rxjs/operators';
 import { environment } from '../../environment/environment';
@@ -16,6 +16,11 @@ import { PredictionResponse } from '../dashboard/prediction-response.interface';
 import { UploadCsvResponse } from './upload-csv-response.interface';
 import { RegisterResponse } from './register-response.interface';
 import { LoginResponse } from './login-response.interface';
+//import { MessageResponse } from './notify-response.interface';
+import { CheckSubscriptionResponse } from './check-subscription-response.interface'; 
+import { HttpParams } from '@angular/common/http'; // For sending URL query parameters
+
+
 
 @Injectable({
   providedIn: 'root'
@@ -30,6 +35,34 @@ export class PredictionService {
     // Check for saved token in local storage
     this.authToken = localStorage.getItem('authToken');
   }
+
+  // Inside the PredictionService class
+// ...
+
+// Helper to get the current username (you might need to adapt this)
+getCurrentUsername(): string | null {
+  const token = this.authToken; // Assumes this.authToken is loaded in constructor or by login
+  if (token) {
+      try {
+          // Simple (and insecure for validation) JWT payload decoding:
+          // This decodes the payload part (middle part) of a JWT.
+          // A proper JWT library (like jwt-decode) is better for robust decoding.
+          // The 'sub' claim is standard for the subject/identity.
+          const payloadBase64 = token.split('.')[1];
+          const decodedPayload = JSON.parse(atob(payloadBase64));
+          console.log("Service getCurrentUsername: Decoded JWT payload:", decodedPayload);
+          return decodedPayload.sub; // 'sub' usually holds the username/identity
+      } catch (e) {
+          console.error("Service getCurrentUsername: Error decoding token, or token invalid:", e);
+          // Fallback or if username was stored separately:
+          // return localStorage.getItem('loggedInUsername'); 
+          return null;
+      }
+  }
+  // Fallback if no token
+  // return localStorage.getItem('loggedInUsername'); 
+  return null;
+}
 
   // Authentication methods
   login(username: string, password: string): Observable<LoginResponse> {
@@ -66,7 +99,7 @@ export class PredictionService {
     localStorage.removeItem('authToken');
   }
 
-  //changed the isLoggedIn method to ensure it checks the latest token from localStorage
+  //changed the 
   isLoggedIn(): boolean {
     this.authToken = localStorage.getItem('authToken'); // Ensure it's fresh
     const loggedIn = !!this.authToken;
@@ -143,6 +176,65 @@ export class PredictionService {
    * @param email User's email address
    * @returns Observable with file ID for tracking
    */
+
+  // Inside the PredictionService class
+// ... (constructor, login, register, logout, isLoggedIn, mock methods, etc.) ...
+
+/**
+ * Checks the subscription status of the currently logged-in user.
+ * @returns Observable<CheckSubscriptionResponse>
+ */
+checkCurrentUserSubscription(): Observable<CheckSubscriptionResponse> {
+  const username = this.getCurrentUsername();
+
+  if (!username) {
+      console.error("Service checkCurrentUserSubscription: Username not available. Cannot check subscription.");
+      // Return an observable that errors or emits a default "not subscribed" state
+      return throwError(() => new Error("User not logged in or username unavailable for subscription check."));
+      // Or: return of({ access: false, message: "User not identified." } as CheckSubscriptionResponse);
+  }
+
+  if (this.useMockData) {
+      console.warn(`MOCK: Checking subscription for user: ${username}`);
+      // Example mock logic
+      if (["usman", "arpan", "thausif"].includes(username)) { // Based on your subscriptions.json
+          return of({ access: true, message: "Mock: You are subscribed!" } as CheckSubscriptionResponse).pipe(delay(300));
+      } else {
+          return of({ access: false, message: "Mock: Please subscribe to access this feature." } as CheckSubscriptionResponse).pipe(delay(300));
+      }
+  }
+
+  const endpoint = `${this.apiUrl}/check-subscription`;
+  // Create HttpParams to send username as a URL query parameter
+  const params = new HttpParams().set('username', username);
+
+  console.log(`Service: Calling GET ${endpoint} with params:`, params.toString());
+
+  // Make the GET request
+  // This endpoint, as per your main.py, doesn't strictly require JWT auth if it's just looking up by username.
+  // However, if you want to ensure only a logged-in user can check *their own* status,
+  // the backend could validate that the JWT identity matches the username param.
+  // For now, assuming it works as defined in main.py (no explicit JWT protection on /check-subscription itself).
+  return this.http.get<CheckSubscriptionResponse>(endpoint, { params }).pipe(
+      tap((response: CheckSubscriptionResponse) => {
+          console.log('Service: /check-subscription API call successful. Response:', response);
+      }),
+      catchError((error: HttpErrorResponse) => {
+          console.error('Service: /check-subscription API call error:', error);
+          let displayMessage = 'Failed to check subscription status.';
+          if (error.error && (typeof error.error.message === 'string' || typeof error.error.error === 'string')) {
+              displayMessage = error.error.message || error.error.error;
+          } else if (error.message) {
+              displayMessage = error.message;
+          }
+          // return this.handleError(error); // If your generic handleError is suitable
+          return throwError(() => new Error(displayMessage));
+      })
+  );
+}
+
+// ... (rest of your service: predictText, uploadCsvForPrediction, etc.) ...
+
   uploadCsvForPrediction(file: File, username: string, email: string): Observable<{ fileId: string; name: string; timestamp: string }> {
     if (this.useMockData) {
       return mockUploadCsvFile(file);
@@ -150,9 +242,9 @@ export class PredictionService {
 
     const endpoint = `${this.apiUrl}${PredictionService.BULK_PREDICT_ENDPOINT}`;
     const formData = new FormData();
-    formData.append('file', file);
-    formData.append('username', 'usman');
-    formData.append('email', 'usmanakmal2017@gmail.com');
+    formData.append('file', file, file.name);
+    formData.append('username', username);  // Include username in the form data
+    formData.append('email', email);       // Include email in the form data
 
     return this.http.post<{ fileId: string; name: string; timestamp: string }>(endpoint, formData).pipe(
       tap(response => console.log('CSV upload response:', response))

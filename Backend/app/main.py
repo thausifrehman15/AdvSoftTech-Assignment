@@ -204,6 +204,9 @@ def bulk_predict():
         if data["access"] == False:
             return jsonify({"error": data["message"]}), 403
     except Exception as e:
+        print(f"ERROR: Generic unexpected exception during subscription check for '{username}': {str(e)}")
+        import traceback # Make sure this import is here
+        traceback.print_exc() # THIS WILL PRINT THE ACTUAL PYTHON ERROR
         return jsonify({"error": "Error checking subscription status"}), 500
 
     # If the user is subscribed, continue with the bulk prediction
