@@ -1,6 +1,6 @@
 export const environment = {
     production: false,
-    apiUrl: 'https://advsofttech-assignment-1-di7r.onrender.com'
+    apiUrl: 'https://advsofttech-assignment-2.onrender.com'
 };
 
 export const environmentProd = {
