@@ -19,11 +19,20 @@ def register_user(username, password, email):
     users = load_users()
     if username in users:
         return False, "User already exists"
-    
+    user_id = str(uuid.uuid4())
     hashed_password = generate_password_hash(password)
-    users[username] = {"password": hashed_password}  # Store password as part of a dictionary
+    users[username] = {
+        "password": hashed_password,
+        "email": email,
+        "id": user_id
+    }
     save_users(users)
-    return True, "User registered successfully"
+    user_data = {
+        "id": user_id,
+        "username": username,
+        "email": email
+    }    
+    return True, "User registered successfully", user_data
 
 def login_user(username: str, password: str) -> tuple[bool, str, dict]:
     try:

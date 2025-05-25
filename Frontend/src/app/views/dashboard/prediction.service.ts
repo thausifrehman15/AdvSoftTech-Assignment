@@ -41,7 +41,7 @@ export class PredictionService {
     if (this.useMockData) {
       return this.mockRegister(email, username, password);
     }
-    
+
     const endpoint = `${this.apiUrl}/signup`;
     return this.http.post<any>(endpoint, { email, username, password }).pipe(
       catchError(this.handleError)
