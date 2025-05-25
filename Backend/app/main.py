@@ -133,7 +133,7 @@ def signup():
             "message": f"Server error: {str(e)}"
         }), 500
 
-@app.route("/login", methods=["POST"]) 
+@app.route("/login", methods=["POST"])
 def login():
     try:
         data = request.get_json()
@@ -144,26 +144,25 @@ def login():
         password = data.get("password")
 
         if not username or not password:
-            return jsonify({"error": "Username and Password are Required"}), 400
+            return jsonify({"error": "Username and Password are required"}), 400
+
+        # Debug print
+        print(f"Login attempt - Username: {username}")
 
         success, message, user_data = login_user(username, password)
-        
+
         if success:
-            token = create_token(user_data['id'], user_data['username'], user_data['email'])
-            jsonify({
-                            "token": token,
-                            "user": {
-                                "id": user_data['id'],
-                                "username": user_data['username'],
-                                "email": user_data['email']
-                            },
-                            "message": message
-                        }), 200
+            token = create_token(user_data['id'], username, user_data['email'])
+            return jsonify({
+                "token": token,
+                "user": user_data,
+                "message": "Login successful"
+            }), 200
         else:
             return jsonify({"error": message}), 401
 
     except Exception as e:
-        app.logger.error(f"Login error: {str(e)}")
+        print(f"Login error: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
 
