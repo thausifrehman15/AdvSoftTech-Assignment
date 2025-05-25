@@ -12,9 +12,13 @@ from flask_swagger_ui import get_swaggerui_blueprint
 import jwt
 from datetime import datetime, timedelta
 from pathlib import Path
+from flask_cors import CORS  # Add CORS support
 
 # Initialize the app and load model
 app = Flask(__name__)
+
+# Add CORS to allow frontend requests
+CORS(app)
 
 # Add these lines after creating the Flask app
 SWAGGER_URL = '/api/docs'
@@ -143,19 +147,26 @@ def login():
         username = data.get("username")
         password = data.get("password")
 
+        # Add debug logging
+        print(f"Login attempt for username: {username}")
+        print(f"Request data: {data}")
+
         if not username or not password:
             return jsonify({"error": "Username and Password are required"}), 400
-
-        # Debug print
-        print(f"Login attempt - Username: {username}")
 
         success, message, user_data = login_user(username, password)
 
         if success:
+            # Generate token
             token = create_token(user_data['id'], username, user_data['email'])
+            
             return jsonify({
                 "token": token,
-                "user": user_data,
+                "user": {
+                    "id": user_data['id'],
+                    "username": username,
+                    "email": user_data['email']
+                },
                 "message": "Login successful"
             }), 200
         else:
@@ -163,7 +174,7 @@ def login():
 
     except Exception as e:
         print(f"Login error: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/subscribe", methods=["POST"])
