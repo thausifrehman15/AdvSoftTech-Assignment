@@ -11,7 +11,7 @@ import { PredictionRequest, PredictionResponse } from './prediction.interface';
 })
 export class PredictionService {
   private apiUrl = environment.apiUrl || 'https://api.yourdomain.com';
-  private useMockData = true;
+  private useMockData = false;
   private authToken: string | null = null;
 
   constructor(private http: HttpClient) {
