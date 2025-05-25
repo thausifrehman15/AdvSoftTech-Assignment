@@ -1,6 +1,7 @@
 import { ChartData } from 'chart.js';
 import { Observable, of, throwError } from 'rxjs';
 import { delay } from 'rxjs/operators';
+import { PredictionResponse } from './prediction.interface';
 
 /**
  * Sample prediction history data for single prediction view
@@ -8,9 +9,9 @@ import { delay } from 'rxjs/operators';
 export const SAMPLE_PREDICTION_HISTORY = [
   {
     text: 'Great customer service experience with your team today!',
-    result: 'Very Positive',
+    final_prediction: 'Very Positive',
     confidence: 45,
-    categories: [
+    sentiment_scores: [
       { name: 'Very Negative', value: 5 },
       { name: 'Slightly Negative', value: 7 },
       { name: 'Neutral', value: 13 },
@@ -21,9 +22,9 @@ export const SAMPLE_PREDICTION_HISTORY = [
   },
   {
     text: 'Product arrived damaged and missing parts.',
-    result: 'Very Negative',
+    final_prediction: 'Very Negative',
     confidence: 42,
-    categories: [
+    sentiment_scores: [
       { name: 'Very Negative', value: 42 },
       { name: 'Slightly Negative', value: 28 },
       { name: 'Neutral', value: 15 },
@@ -34,9 +35,9 @@ export const SAMPLE_PREDICTION_HISTORY = [
   },
   {
     text: 'The documentation was clear and helpful.',
-    result: 'Slightly Positive',
+    final_prediction: 'Slightly Positive',
     confidence: 38,
-    categories: [
+    sentiment_scores: [
       { name: 'Very Negative', value: 8 },
       { name: 'Slightly Negative', value: 12 },
       { name: 'Neutral', value: 20 },
@@ -47,9 +48,9 @@ export const SAMPLE_PREDICTION_HISTORY = [
   },
   {
     text: 'Waiting for my refund for over 2 weeks now.',
-    result: 'Slightly Negative',
+    final_prediction: 'Slightly Negative',
     confidence: 35,
-    categories: [
+    sentiment_scores: [
       { name: 'Very Negative', value: 25 },
       { name: 'Slightly Negative', value: 35 },
       { name: 'Neutral', value: 20 },
@@ -60,9 +61,9 @@ export const SAMPLE_PREDICTION_HISTORY = [
   },
   {
     text: 'Neutral review, does what it says.',
-    result: 'Neutral',
+    final_prediction: 'Neutral',
     confidence: 40,
-    categories: [
+    sentiment_scores: [
       { name: 'Very Negative', value: 12 },
       { name: 'Slightly Negative', value: 18 },
       { name: 'Neutral', value: 40 },
@@ -73,9 +74,9 @@ export const SAMPLE_PREDICTION_HISTORY = [
   },
   {
     text: 'The product exceeded my expectations in every way.',
-    result: 'Very Positive',
+    final_prediction: 'Very Positive',
     confidence: 45,
-    categories: [
+    sentiment_scores: [
       { name: 'Very Negative', value: 5 },
       { name: 'Slightly Negative', value: 7 },
       { name: 'Neutral', value: 13 },
@@ -86,9 +87,9 @@ export const SAMPLE_PREDICTION_HISTORY = [
   },
   {
     text: 'This was a complete waste of money.',
-    result: 'Very Negative',
+    final_prediction: 'Very Negative',
     confidence: 42,
-    categories: [
+    sentiment_scores: [
       { name: 'Very Negative', value: 42 },
       { name: 'Slightly Negative', value: 28 },
       { name: 'Neutral', value: 15 },
@@ -99,9 +100,9 @@ export const SAMPLE_PREDICTION_HISTORY = [
   },
   {
     text: 'Average product, nothing special but works fine.',
-    result: 'Slightly Positive',
+    final_prediction: 'Slightly Positive',
     confidence: 38,
-    categories: [
+    sentiment_scores: [
       { name: 'Very Negative', value: 8 },
       { name: 'Slightly Negative', value: 12 },
       { name: 'Neutral', value: 20 },
@@ -112,9 +113,9 @@ export const SAMPLE_PREDICTION_HISTORY = [
   },
   {
     text: 'The customer support team was very responsive.',
-    result: 'Slightly Negative',
+    final_prediction: 'Slightly Negative',
     confidence: 35,
-    categories: [
+    sentiment_scores: [
       { name: 'Very Negative', value: 25 },
       { name: 'Slightly Negative', value: 35 },
       { name: 'Neutral', value: 20 },
@@ -125,9 +126,9 @@ export const SAMPLE_PREDICTION_HISTORY = [
   },
   {
     text: 'Software is buggy and crashes frequently.',
-    result: 'Neutral',
+    final_prediction: 'Neutral',
     confidence: 40,
-    categories: [
+    sentiment_scores: [
       { name: 'Very Negative', value: 12 },
       { name: 'Slightly Negative', value: 18 },
       { name: 'Neutral', value: 40 },
@@ -138,9 +139,9 @@ export const SAMPLE_PREDICTION_HISTORY = [
   },
   {
     text: 'Thank you for the prompt delivery!',
-    result: 'Very Positive',
+    final_prediction: 'Very Positive',
     confidence: 45,
-    categories: [
+    sentiment_scores: [
       { name: 'Very Negative', value: 5 },
       { name: 'Slightly Negative', value: 7 },
       { name: 'Neutral', value: 13 },
@@ -151,9 +152,9 @@ export const SAMPLE_PREDICTION_HISTORY = [
   },
   {
     text: 'Will definitely recommend to my friends.',
-    result: 'Very Negative',
+    final_prediction: 'Very Negative',
     confidence: 42,
-    categories: [
+    sentiment_scores: [
       { name: 'Very Negative', value: 42 },
       { name: 'Slightly Negative', value: 28 },
       { name: 'Neutral', value: 15 },
@@ -164,9 +165,9 @@ export const SAMPLE_PREDICTION_HISTORY = [
   },
   {
     text: 'Not what I expected based on the description.',
-    result: 'Slightly Positive',
+    final_prediction: 'Slightly Positive',
     confidence: 38,
-    categories: [
+    sentiment_scores: [
       { name: 'Very Negative', value: 8 },
       { name: 'Slightly Negative', value: 12 },
       { name: 'Neutral', value: 20 },
@@ -187,10 +188,11 @@ export const SAMPLE_CSV_FILES = [
     isDefault: false,
     data: [
       {
-        Text: "The service was exceptional and I'm very satisfied.",
-        Prediction: 'Very Positive',
-        Confidence: 85,
-        categories: [
+        text: "The service was exceptional and I'm very satisfied.",
+        final_prediction: 'Very Positive',
+        confidence: 85,
+        timestamp: new Date('2025-05-18T15:00:00'),
+        sentiment_scores: [
           { name: 'Very Negative', value: 3 },
           { name: 'Slightly Negative', value: 2 },
           { name: 'Neutral', value: 4 },
@@ -199,10 +201,11 @@ export const SAMPLE_CSV_FILES = [
         ],
       },
       {
-        Text: "Staff was rude and the product didn't work at all.",
-        Prediction: 'Very Negative',
-        Confidence: 72,
-        categories: [
+        text: "Staff was rude and the product didn't work at all.",
+        final_prediction: 'Very Negative',
+        confidence: 72,
+        timestamp: new Date('2025-05-18T15:00:00'),
+        sentiment_scores: [
           { name: 'Very Negative', value: 72 },
           { name: 'Slightly Negative', value: 18 },
           { name: 'Neutral', value: 5 },
@@ -211,10 +214,11 @@ export const SAMPLE_CSV_FILES = [
         ],
       },
       {
-        Text: 'It functions as expected, no issues so far.',
-        Prediction: 'Neutral',
-        Confidence: 65,
-        categories: [
+        text: 'It functions as expected, no issues so far.',
+        final_prediction: 'Neutral',
+        confidence: 65,
+        timestamp: new Date('2025-05-18T15:00:00'),
+        sentiment_scores: [
           { name: 'Very Negative', value: 5 },
           { name: 'Slightly Negative', value: 8 },
           { name: 'Neutral', value: 65 },
@@ -223,10 +227,11 @@ export const SAMPLE_CSV_FILES = [
         ],
       },
       {
-        Text: 'The online experience could be improved.',
-        Prediction: 'Slightly Negative',
-        Confidence: 55,
-        categories: [
+        text: 'The online experience could be improved.',
+        final_prediction: 'Slightly Negative',
+        confidence: 55,
+        timestamp: new Date('2025-05-18T15:00:00'),
+        sentiment_scores: [
           { name: 'Very Negative', value: 15 },
           { name: 'Slightly Negative', value: 55 },
           { name: 'Neutral', value: 20 },
@@ -235,10 +240,11 @@ export const SAMPLE_CSV_FILES = [
         ],
       },
       {
-        Text: "I'm mostly happy with my purchase.",
-        Prediction: 'Slightly Positive',
-        Confidence: 68,
-        categories: [
+        text: "I'm mostly happy with my purchase.",
+        final_prediction: 'Slightly Positive',
+        confidence: 68,
+        timestamp: new Date('2025-05-18T15:00:00'),
+        sentiment_scores: [
           { name: 'Very Negative', value: 5 },
           { name: 'Slightly Negative', value: 7 },
           { name: 'Neutral', value: 10 },
@@ -247,10 +253,11 @@ export const SAMPLE_CSV_FILES = [
         ],
       },
       {
-        Text: 'Product is amazing but delivery was slow.',
-        Prediction: 'Slightly Positive',
-        Confidence: 62,
-        categories: [
+        text: 'Product is amazing but delivery was slow.',
+        final_prediction: 'Slightly Positive',
+        confidence: 62,
+        timestamp: new Date('2025-05-18T15:00:00'),
+        sentiment_scores: [
           { name: 'Very Negative', value: 8 },
           { name: 'Slightly Negative', value: 15 },
           { name: 'Neutral', value: 5 },
@@ -259,10 +266,11 @@ export const SAMPLE_CSV_FILES = [
         ],
       },
       {
-        Text: 'I returned the item immediately.',
-        Prediction: 'Slightly Negative',
-        Confidence: 58,
-        categories: [
+        text: 'I returned the item immediately.',
+        final_prediction: 'Slightly Negative',
+        confidence: 58,
+        timestamp: new Date('2025-05-18T15:00:00'),
+        sentiment_scores: [
           { name: 'Very Negative', value: 25 },
           { name: 'Slightly Negative', value: 58 },
           { name: 'Neutral', value: 12 },
@@ -271,10 +279,11 @@ export const SAMPLE_CSV_FILES = [
         ],
       },
       {
-        Text: "It's ok I guess, nothing special.",
-        Prediction: 'Neutral',
-        Confidence: 70,
-        categories: [
+        text: "It's ok I guess, nothing special.",
+        final_prediction: 'Neutral',
+        confidence: 70,
+        timestamp: new Date('2025-05-18T15:00:00'),
+        sentiment_scores: [
           { name: 'Very Negative', value: 5 },
           { name: 'Slightly Negative', value: 10 },
           { name: 'Neutral', value: 70 },
@@ -283,10 +292,11 @@ export const SAMPLE_CSV_FILES = [
         ],
       },
       {
-        Text: 'Great value for money, highly recommended!',
-        Prediction: 'Very Positive',
-        Confidence: 80,
-        categories: [
+        text: 'Great value for money, highly recommended!',
+        final_prediction: 'Very Positive',
+        confidence: 80,
+        timestamp: new Date('2025-05-18T15:00:00'),
+        sentiment_scores: [
           { name: 'Very Negative', value: 2 },
           { name: 'Slightly Negative', value: 3 },
           { name: 'Neutral', value: 5 },
@@ -295,10 +305,11 @@ export const SAMPLE_CSV_FILES = [
         ],
       },
       {
-        Text: 'The website crashed during checkout.',
-        Prediction: 'Very Negative',
-        Confidence: 75,
-        categories: [
+        text: 'The website crashed during checkout.',
+        final_prediction: 'Very Negative',
+        confidence: 75,
+        timestamp: new Date('2025-05-18T15:00:00'),
+        sentiment_scores: [
           { name: 'Very Negative', value: 75 },
           { name: 'Slightly Negative', value: 15 },
           { name: 'Neutral', value: 5 },
@@ -308,10 +319,11 @@ export const SAMPLE_CSV_FILES = [
       },
       // Add more rows to demonstrate pagination
       {
-        Text: 'Not worth the price I paid.',
-        Prediction: 'Slightly Negative',
-        Confidence: 60,
-        categories: [
+        text: 'Not worth the price I paid.',
+        final_prediction: 'Slightly Negative',
+        confidence: 60,
+        timestamp: new Date('2025-05-18T15:00:00'),
+        sentiment_scores: [
           { name: 'Very Negative', value: 25 },
           { name: 'Slightly Negative', value: 60 },
           { name: 'Neutral', value: 10 },
@@ -320,10 +332,11 @@ export const SAMPLE_CSV_FILES = [
         ],
       },
       {
-        Text: 'The shipping was incredibly fast!',
-        Prediction: 'Very Positive',
-        Confidence: 78,
-        categories: [
+        text: 'The shipping was incredibly fast!',
+        final_prediction: 'Very Positive',
+        confidence: 78,
+        timestamp: new Date('2025-05-18T15:00:00'),
+        sentiment_scores: [
           { name: 'Very Negative', value: 2 },
           { name: 'Slightly Negative', value: 5 },
           { name: 'Neutral', value: 5 },
@@ -342,10 +355,11 @@ export const SAMPLE_CSV_FILES = [
     isDefault: false,
     data: [
       {
-        Text: 'This product changed my life!',
-        Prediction: 'Very Positive',
-        Confidence: 88,
-        categories: [
+        text: 'This product changed my life!',
+        final_prediction: 'Very Positive',
+        confidence: 88,
+        timestamp: new Date('2025-05-18T15:00:00'),
+        sentiment_scores: [
           { name: 'Very Negative', value: 2 },
           { name: 'Slightly Negative', value: 2 },
           { name: 'Neutral', value: 3 },
@@ -354,10 +368,11 @@ export const SAMPLE_CSV_FILES = [
         ],
       },
       {
-        Text: 'It broke after two days of use.',
-        Prediction: 'Very Negative',
-        Confidence: 76,
-        categories: [
+        text: 'It broke after two days of use.',
+        final_prediction: 'Very Negative',
+        confidence: 76,
+        timestamp: new Date('2025-05-18T15:00:00'),
+        sentiment_scores: [
           { name: 'Very Negative', value: 76 },
           { name: 'Slightly Negative', value: 15 },
           { name: 'Neutral', value: 5 },
@@ -366,10 +381,11 @@ export const SAMPLE_CSV_FILES = [
         ],
       },
       {
-        Text: 'Works as described, average performance.',
-        Prediction: 'Neutral',
-        Confidence: 65,
-        categories: [
+        text: 'Works as described, average performance.',
+        final_prediction: 'Neutral',
+        confidence: 65,
+        timestamp: new Date('2025-05-18T15:00:00'),
+        sentiment_scores: [
           { name: 'Very Negative', value: 5 },
           { name: 'Slightly Negative', value: 10 },
           { name: 'Neutral', value: 65 },
@@ -408,44 +424,47 @@ export const SAMPLE_MY_FILES = [
     id: 'my1',
     name: 'customer_segmentation.csv',
     status: 'completed',
-    timestamp: new Date(Date.now() - 2 * 24 * 60 * 60000), // 2 days ago
+    timestamp: new Date(Date.now() - 2 * 24 * 60 * 60000),
     isDefault: false,
     data: [
       {
-        Text: 'I love your products and will keep buying them!',
-        Prediction: 'Very Positive',
-        Confidence: 90,
-        categories: [
+        text: 'I love your products and will keep buying them!',
+        final_prediction: 'Very Positive',
+        confidence: 90,
+        sentiment_scores: [
           { name: 'Very Negative', value: 2 },
           { name: 'Slightly Negative', value: 2 },
           { name: 'Neutral', value: 1 },
           { name: 'Slightly Positive', value: 5 },
           { name: 'Very Positive', value: 90 },
         ],
+        timestamp: new Date(),
       },
       {
-        Text: 'Service was average, could be improved.',
-        Prediction: 'Neutral',
-        Confidence: 62,
-        categories: [
+        text: 'Service was average, could be improved.',
+        final_prediction: 'Neutral',
+        confidence: 62,
+        sentiment_scores: [
           { name: 'Very Negative', value: 8 },
           { name: 'Slightly Negative', value: 15 },
           { name: 'Neutral', value: 62 },
           { name: 'Slightly Positive', value: 10 },
           { name: 'Very Positive', value: 5 },
         ],
+        timestamp: new Date(),
       },
       {
-        Text: 'I was very disappointed with my experience.',
-        Prediction: 'Slightly Negative',
-        Confidence: 68,
-        categories: [
+        text: 'I was very disappointed with my experience.',
+        final_prediction: 'Slightly Negative',
+        confidence: 68,
+        sentiment_scores: [
           { name: 'Very Negative', value: 20 },
           { name: 'Slightly Negative', value: 68 },
           { name: 'Neutral', value: 5 },
           { name: 'Slightly Positive', value: 5 },
           { name: 'Very Positive', value: 2 },
         ],
+        timestamp: new Date(),
       },
     ],
     chartData: generateChartData('Customer Segmentation'),
@@ -458,28 +477,30 @@ export const SAMPLE_MY_FILES = [
     isDefault: false,
     data: [
       {
-        Text: 'Your promotional email was very informative.',
-        Prediction: 'Slightly Positive',
-        Confidence: 72,
-        categories: [
+        text: 'Your promotional email was very informative.',
+        final_prediction: 'Slightly Positive',
+        confidence: 72,
+        sentiment_scores: [
           { name: 'Very Negative', value: 3 },
           { name: 'Slightly Negative', value: 5 },
           { name: 'Neutral', value: 10 },
           { name: 'Slightly Positive', value: 72 },
           { name: 'Very Positive', value: 10 },
         ],
+        timestamp: new Date(),
       },
       {
-        Text: 'I find these marketing emails annoying.',
-        Prediction: 'Slightly Negative',
-        Confidence: 65,
-        categories: [
+        text: 'I find these marketing emails annoying.',
+        final_prediction: 'Slightly Negative',
+        confidence: 65,
+        sentiment_scores: [
           { name: 'Very Negative', value: 20 },
           { name: 'Slightly Negative', value: 65 },
           { name: 'Neutral', value: 10 },
           { name: 'Slightly Positive', value: 3 },
           { name: 'Very Positive', value: 2 },
         ],
+        timestamp: new Date(),
       },
     ],
     chartData: generateChartData('Marketing Campaign Results'),
@@ -538,21 +559,43 @@ let csvFilesData = [...SAMPLE_CSV_FILES];
  * @param text Text to analyze
  * @returns Observable with prediction result
  */
-export function mockPredictText(text: string): Observable<any> {
+export function mockPredictText(text: string): PredictionResponse {
   // Simulate API processing time
-  return of({
+  // Generate random confidence value between 30 and 95
+  const confidence = Math.floor(Math.random() * 65) + 30;
+  
+  // Get prediction category
+  const final_prediction = getRandomPrediction();
+  
+  // Generate sentiment scores with highest value matching prediction
+  const sentimentScores = [
+    { name: 'Very Negative', value: Math.floor(Math.random() * 25) + 5 },
+    { name: 'Slightly Negative', value: Math.floor(Math.random() * 25) + 5 },
+    { name: 'Neutral', value: Math.floor(Math.random() * 25) + 5 },
+    { name: 'Slightly Positive', value: Math.floor(Math.random() * 25) + 5 },
+    { name: 'Very Positive', value: Math.floor(Math.random() * 25) + 5 },
+  ];
+  
+  // Ensure the predicted category has the highest confidence
+  const predictedCategoryIndex = sentimentScores.findIndex(
+    (c) => c.name === final_prediction
+  );
+  if (predictedCategoryIndex >= 0) {
+    sentimentScores[predictedCategoryIndex].value = confidence;
+  }
+  
+  const prediction = {
     text: text,
-    category: 'review',
-    final_prediction: getRandomPrediction(),
-    sentiment_scores: generateRandomSentimentScores(),
-    text_analysis: {
-      avg_word_length: (text.length / (text.split(' ').length || 1)).toFixed(1),
-      has_exclamation: text.includes('!'),
-      has_question: text.includes('?'),
-      length: text.length,
-      word_count: text.split(' ').length,
-    },
-  }).pipe(delay(1500)); // Simulate network delay
+    final_prediction: final_prediction,
+    confidence: confidence,
+    sentiment_scores: sentimentScores,
+    timestamp: new Date()
+  };
+  
+  // Add to prediction history
+  addPredictionToHistory(prediction);
+  
+  return prediction;
 }
 
 /**
@@ -591,40 +634,43 @@ export function mockUploadCsvFile(
         isDefault: false,
         data: [
           {
-            Text: 'We love your customer service approach!',
-            Prediction: 'Very Positive',
-            Confidence: 92,
-            categories: [
+            text: 'We love your customer service approach!',
+            final_prediction: 'Very Positive',
+            confidence: 92,
+            sentiment_scores: [
               { name: 'Very Negative', value: 1 },
               { name: 'Slightly Negative', value: 2 },
               { name: 'Neutral', value: 1 },
               { name: 'Slightly Positive', value: 4 },
               { name: 'Very Positive', value: 92 },
             ],
+            timestamp: new Date()
           },
           {
-            Text: 'The product is okay but delivery was slow.',
-            Prediction: 'Neutral',
-            Confidence: 68,
-            categories: [
+            text: 'The product is okay but delivery was slow.',
+            final_prediction: 'Neutral',
+            confidence: 68,
+            sentiment_scores: [
               { name: 'Very Negative', value: 5 },
               { name: 'Slightly Negative', value: 12 },
               { name: 'Neutral', value: 68 },
               { name: 'Slightly Positive', value: 10 },
               { name: 'Very Positive', value: 5 },
             ],
+            timestamp: new Date()
           },
           {
-            Text: 'I was disappointed with the quality.',
-            Prediction: 'Slightly Negative',
-            Confidence: 75,
-            categories: [
+            text: 'I was disappointed with the quality.',
+            final_prediction: 'Slightly Negative',
+            confidence: 75,
+            sentiment_scores: [
               { name: 'Very Negative', value: 15 },
               { name: 'Slightly Negative', value: 75 },
               { name: 'Neutral', value: 5 },
               { name: 'Slightly Positive', value: 3 },
               { name: 'Very Positive', value: 2 },
             ],
+            timestamp: new Date()
           },
         ],
         chartData: {
@@ -760,7 +806,25 @@ export function mockGetUserData(): Observable<{
  * @param prediction Prediction to add
  */
 export function addPredictionToHistory(prediction: any): void {
-  userPredictionHistory.unshift(prediction);
+  // Check if this exact prediction is already in the history
+  const isDuplicate = userPredictionHistory.some((p: any) => 
+    p.text === prediction.text && 
+    ((p.timestamp instanceof Date && prediction.timestamp instanceof Date && 
+      p.timestamp.getTime() === prediction.timestamp.getTime()) ||
+     (typeof p.timestamp === 'string' && typeof prediction.timestamp === 'string' &&
+      p.timestamp === prediction.timestamp))
+  );
+  
+  // Only add if not a duplicate
+  if (!isDuplicate) {
+    userPredictionHistory.unshift({
+      text: prediction.text,
+      final_prediction: prediction.final_prediction,
+      confidence: prediction.confidence,
+      sentiment_scores: prediction.sentiment_scores || [],
+      timestamp: prediction.timestamp
+    });
+  }
 }
 
 /**

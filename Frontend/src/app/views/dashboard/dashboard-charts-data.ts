@@ -1,7 +1,23 @@
 import { Injectable } from '@angular/core';
-import { ChartData, ChartDataset, ChartOptions, ChartType, PluginOptionsByType, ScaleOptions, TooltipLabelStyle } from 'chart.js';
-import { DeepPartial } from 'chart.js/dist/types/utils';
+import { ChartData, ChartDataset, ChartOptions, ChartType, PluginOptionsByType, ScaleOptions, TooltipItem } from 'chart.js';
 import { getStyle } from '@coreui/utils';
+
+// Define our own DeepPartial type since it's not exported from chart.js anymore
+type DeepPartial<T> = T extends object ? {
+  [P in keyof T]?: DeepPartial<T[P]>;
+} : T;
+
+// Update the TooltipLabelStyle interface definition
+interface TooltipLabelStyle {
+  backgroundColor: string | CanvasGradient | CanvasPattern;
+  borderColor?: string | CanvasGradient | CanvasPattern;
+  borderWidth?: number;
+  borderRadius?: number;
+  borderDash?: [number, number];
+  borderDashOffset?: number;
+  width?: number;
+  height?: number;
+}
 
 export interface IChartProps {
   data?: ChartData;
@@ -120,20 +136,26 @@ export class DashboardChartsData {
       }
     ];
 
-    const plugins: DeepPartial<PluginOptionsByType<any>> = {
+    // Update the plugins definition with a more compatible type approach
+    const plugins = {
       legend: {
         display: false
       },
       tooltip: {
         callbacks: {
-          labelColor: (context) => ({ backgroundColor: context.dataset.borderColor } as TooltipLabelStyle)
+          labelColor: (context: TooltipItem<'line'>) => {
+            return {
+              borderColor: context.dataset.borderColor as string,
+              backgroundColor: context.dataset.borderColor as string
+            };
+          }
         }
       }
-    };
+    } as const;
 
     const scales = this.getScales();
 
-    const options: ChartOptions = {
+    const options: ChartOptions<'line'> = {
       maintainAspectRatio: false,
       plugins,
       scales,

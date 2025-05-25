@@ -1,0 +1,215 @@
+<c-container>
+  <h1 class="text-center my-5">Subscription Plans</h1>
+  
+  <!-- Notification for current plan -->
+  <div class="text-center mb-4">
+    <c-alert *ngIf="isCurrentPlan('free')" color="info">
+      You're currently on the <strong>Free Plan</strong>. Upgrade to Pro for advanced features!
+    </c-alert>
+    
+    <c-alert *ngIf="isCurrentPlan('pro')" color="success">
+      <strong>Thank you for being a Pro subscriber!</strong> You have access to all premium features.
+    </c-alert>
+  </div>
+
+  <c-alert *ngIf="currentSubscription === 'pro'" color="success" class="text-center">
+    <strong>You're currently subscribed to the Pro Plan!</strong> 
+    <p class="mt-2 mb-0">Enjoy all premium features including Bulk CSV Prediction.</p>
+  </c-alert>
+
+  <c-row class="justify-content-center g-4 my-4">
+    <!-- Free Plan -->
+    <c-col lg="4" md="6">
+      <c-card [class.border-primary]="isCurrentPlan('free')" class="h-100 subscription-card">
+        <c-card-header>
+          <h3>Free Plan</h3>
+          <div class="price-tag">
+            <span class="currency">$</span>
+            <span class="amount">0</span>
+            <span class="period">/month</span>
+          </div>
+        </c-card-header>
+        <c-card-body>
+          <h5 class="text-center mb-4">Features</h5>
+          <ul class="feature-list">
+            <li>
+              <svg cIcon name="cilCheckAlt" class="text-success me-2"></svg>
+              Single Line Predictions
+            </li>
+            <li>
+              <svg cIcon name="cilCheckAlt" class="text-success me-2"></svg>
+              Basic Result History
+            </li>
+            <li>
+              <svg cIcon name="cilCheckAlt" class="text-success me-2"></svg>
+              Standard Support
+            </li>
+            <li class="text-muted">
+              <svg cIcon name="cilX" class="text-danger me-2"></svg>
+              <del>Bulk CSV Predictions</del>
+            </li>
+            <li class="text-muted">
+              <svg cIcon name="cilX" class="text-danger me-2"></svg>
+              <del>Advanced Analytics</del>
+            </li>
+          </ul>
+        </c-card-body>
+        <c-card-footer class="text-center">
+          <button 
+            cButton 
+            [color]="isCurrentPlan('free') ? 'success' : 'secondary'" 
+            [disabled]="true" 
+            size="lg"
+            class="px-4">
+            <span *ngIf="isCurrentPlan('free')">Current Plan</span>
+            <span *ngIf="!isCurrentPlan('free')">Basic Plan</span>
+          </button>
+        </c-card-footer>
+      </c-card>
+    </c-col>
+
+    <!-- Pro Plan -->
+    <c-col lg="4" md="6">
+      <c-card [class.border-primary]="isCurrentPlan('pro')" class="h-100 subscription-card pro-plan">
+        <c-badge color="primary" position="top-end" shape="rounded-pill" class="me-3 mt-3">
+          RECOMMENDED
+        </c-badge>
+        <c-card-header>
+          <h3>Pro Plan</h3>
+          <div class="price-tag">
+            <span class="currency">$</span>
+            <span class="amount">19.99</span>
+            <span class="period">/month</span>
+          </div>
+        </c-card-header>
+        <c-card-body>
+          <h5 class="text-center mb-4">Features</h5>
+          <ul class="feature-list">
+            <li>
+              <svg cIcon name="cilCheckAlt" class="text-success me-2"></svg>
+              Single Line Predictions
+            </li>
+            <li>
+              <svg cIcon name="cilCheckAlt" class="text-success me-2"></svg>
+              <strong>Bulk CSV Predictions</strong>
+            </li>
+            <li>
+              <svg cIcon name="cilCheckAlt" class="text-success me-2"></svg>
+              Advanced Analytics
+            </li>
+            <li>
+              <svg cIcon name="cilCheckAlt" class="text-success me-2"></svg>
+              Priority Support
+            </li>
+            <li>
+              <svg cIcon name="cilCheckAlt" class="text-success me-2"></svg>
+              Unlimited History
+            </li>
+          </ul>
+        </c-card-body>
+        <c-card-footer class="text-center">
+          <button 
+            cButton 
+            [color]="isCurrentPlan('pro') ? 'danger' : 'primary'" 
+            [disabled]="false" 
+            (click)="isCurrentPlan('pro') ? cancelSubscription() : selectPlan(subscriptionPlans[1])"
+            size="lg"
+            class="px-4">
+            <span *ngIf="!isCurrentPlan('pro')">Select Plan</span>
+            <span *ngIf="isCurrentPlan('pro')">Cancel Plan</span>
+          </button>
+        </c-card-footer>
+      </c-card>
+    </c-col>
+  </c-row>
+
+  <!-- Return to Dashboard button -->
+  <div class="text-center mt-5">
+    <button cButton color="secondary" routerLink="/dashboard">
+      Return to Dashboard
+    </button>
+  </div>
+</c-container>
+
+<!-- Payment Modal -->
+<!-- Remove the original c-modal and implement a custom modal approach -->
+<div *ngIf="showPaymentModal" class="modal-overlay">
+  <div class="modal-container">
+    <div class="payment-modal">
+      <div class="payment-modal-header">
+        <h5>Complete Your Subscription</h5>
+        <button (click)="closeModal()" class="close-button">&times;</button>
+      </div>
+      <div class="payment-modal-body">
+        <!-- Success Animation -->
+        <div *ngIf="paymentSuccess" class="payment-success-animation">
+          <div class="check-icon">
+            <svg cIcon name="cilCheckAlt" width="40" height="40"></svg>
+          </div>
+          <c-alert color="success" class="mt-3">
+            <strong>Payment successful!</strong><br>
+            You are now subscribed to the {{ selectedPlan?.name }}.<br>
+            <small>Redirecting to dashboard to try Bulk Prediction...</small>
+          </c-alert>
+        </div>
+  
+        <c-alert *ngIf="paymentError" color="danger">
+          {{ paymentError }}
+        </c-alert>
+  
+        <div *ngIf="!paymentSuccess">
+          <h4 class="mt-0">{{ selectedPlan?.name }} - ${{ selectedPlan?.price }} per month</h4>
+          <p>Please enter your payment information to complete the subscription.</p>
+  
+          <form [formGroup]="paymentForm" cForm>
+            <div class="mb-3">
+              <label cLabel for="cardName">Name on Card</label>
+              <input cFormControl id="cardName" formControlName="cardName" placeholder="John Doe" 
+                    [ngClass]="{'is-invalid': hasInvalidClass('cardName')}">
+              <div *ngIf="hasInvalidClass('cardName')" class="invalid-feedback">
+                Name on card is required
+              </div>
+            </div>
+  
+            <div class="mb-3">
+              <label cLabel for="cardNumber">Card Number</label>
+              <input cFormControl id="cardNumber" formControlName="cardNumber" placeholder="1234567890123456" 
+                    [ngClass]="{'is-invalid': hasInvalidClass('cardNumber')}">
+              <div *ngIf="hasInvalidClass('cardNumber')" class="invalid-feedback">
+                Please enter a valid 16-digit card number
+              </div>
+            </div>
+  
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label cLabel for="expiryDate">Expiry Date</label>
+                <input cFormControl id="expiryDate" formControlName="expiryDate" placeholder="MM/YY" 
+                      [ngClass]="{'is-invalid': hasInvalidClass('expiryDate')}">
+                <div *ngIf="hasInvalidClass('expiryDate')" class="invalid-feedback">
+                  Enter a valid expiry date (MM/YY)
+                </div>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label cLabel for="cvv">CVV</label>
+                <input cFormControl id="cvv" formControlName="cvv" placeholder="123" 
+                      [ngClass]="{'is-invalid': hasInvalidClass('cvv')}">
+                <div *ngIf="hasInvalidClass('cvv')" class="invalid-feedback">
+                  Enter a valid CVV (3-4 digits)
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="payment-modal-footer">
+        <button cButton color="secondary" (click)="closeModal()">
+          Cancel
+        </button>
+        <button cButton color="primary" (click)="processPurchase()" [disabled]="processing || paymentSuccess">
+          <span *ngIf="!processing">Complete Payment</span>
+          <span *ngIf="processing">Processing...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

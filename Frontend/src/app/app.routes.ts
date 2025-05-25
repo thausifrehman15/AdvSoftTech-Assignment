@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
-import { DefaultLayoutComponent } from './layout';
+import { DefaultLayoutComponent } from './layout/default-layout/default-layout.component';
+import { authGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -13,6 +14,8 @@ export const routes: Routes = [
     data: {
       title: 'Home'
     },
+    // Apply the auth guard to all routes that use DefaultLayoutComponent
+    canActivate: [authGuard],
     children: [
       {
         path: 'dashboard',
@@ -34,10 +37,10 @@ export const routes: Routes = [
         path: 'forms',
         loadChildren: () => import('./views/forms/routes').then((m) => m.routes)
       },
-      {
-        path: 'icons',
-        loadChildren: () => import('./views/icons/routes').then((m) => m.routes)
-      },
+      // {
+      //   path: 'icons',
+      //   loadChildren: () => import('./views/icons/routes').then((m) => m.routes)
+      // },
       {
         path: 'notifications',
         loadChildren: () => import('./views/notifications/routes').then((m) => m.routes)
@@ -53,6 +56,14 @@ export const routes: Routes = [
       {
         path: 'pages',
         loadChildren: () => import('./views/pages/routes').then((m) => m.routes)
+      },
+      {
+        path: 'subscription',
+        loadComponent: () => import('./views/subscription/subscription.component').then(m => m.SubscriptionComponent),
+        data: {
+          title: 'Subscription Plans'
+        },
+        canActivate: [authGuard] // Ensure the auth guard is applied here
       }
     ]
   },
