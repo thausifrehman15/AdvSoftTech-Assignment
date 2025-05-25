@@ -1,33 +1,16 @@
-from flask import Flask, request, jsonify, send_from_directory
-import os
-from app.model_loader import load_model
-from app.predictor import predict_sentiment
+from flask import Flask, request, jsonify
+from flask_cors import CORS  # Add this import
+from app.model_loader import load_model, predict_sentiment  # <-- Only this!
 from app.auth import register_user, login_user
-from app.email_utils import send_email_with_attachment  # ✅ NEW
 import pandas as pd
 import io
-import requests  # ✅ For internal API call
-import json  # For handling JSON files
-from flask_swagger_ui import get_swaggerui_blueprint
+import requests
 
-app = Flask(__name__, static_url_path='/static', static_folder='static')
-
-# Add these lines after creating the Flask app
-SWAGGER_URL = '/api/docs'
-API_URL = '/static/swagger.yaml'
-
-swaggerui_blueprint = get_swaggerui_blueprint(
-    SWAGGER_URL,
-    API_URL,
-    config={
-        'app_name': "Sentiment Analysis API"
-    }
-)
-
-app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
+app = Flask(__name__)
+CORS(app)  # Allow CORS from anywhere
 
 # Load model on startup
-tokenizer, model, labels = load_model()
+analyzer, labels = load_model()
 
 @app.route("/")
 def home():
@@ -39,7 +22,7 @@ def predict():
     if not data or "text" not in data:
         return jsonify({"error": "Please provide a 'text' field"}), 400
 
-    result = predict_sentiment(data["text"], tokenizer, model, labels)
+    result = predict_sentiment(data["text"], analyzer, labels)
     result["text"] = data["text"] 
     return jsonify(result)
 
@@ -73,133 +56,16 @@ def login():
 @app.route("/notify", methods=["GET"])
 def notify():
     print("📢 Notification: Bulk prediction completed.")
-    return jsonify({"message": "File prediction completed successfully."})
-
-@app.route("/subscribe", methods=["POST"])
-def subscribe():
-    """
-    Subscribe a user to access bulk prediction.
-    ---
-    parameters:
-      - name: username
-        in: body
-        required: true
-        type: string
-        description: The username to subscribe
-    responses:
-      200:
-        description: User has been subscribed
-      400:
-        description: User not found
-    """
-    data = request.get_json()
-    username = data.get("username")
-
-    # Load users data from JSON file
-    with open("users.json", "r") as f:
-        users = json.load(f)
-
-    if username not in users:
-        return jsonify({"error": "User not found"}), 404
-
-    # Update the subscription status
-    with open("subscriptions.json", "r") as f:
-        subscriptions = json.load(f)
-
-    subscriptions[username] = True
-
-    # Save the updated subscription data
-    with open("subscriptions.json", "w") as f:
-        json.dump(subscriptions, f, indent=4)
-
-    return jsonify({"message": f"User {username} subscribed successfully!"}), 200
-
-@app.route("/check-subscription", methods=["GET"])
-def check_subscription():
-    """
-    Check if the user is subscribed.
-    ---
-    parameters:
-      - name: username
-        in: query
-        required: true
-        type: string
-        description: The username to check subscription
-    responses:
-      200:
-        description: User subscription status
-    """
-    username = request.args.get("username")
-
-    if not username:
-        return jsonify({"error": "Username is required."}), 400
-
-    # Load subscriptions data
-    with open("subscriptions.json", "r") as f:
-        subscriptions = json.load(f)
-
-    if username not in subscriptions:
-        return jsonify({"error": "User not found."}), 404
-
-    # Check subscription status
-    is_subscribed = subscriptions[username]
-
-    if is_subscribed:
-        return jsonify({"access": True, "message": "✅ You are subscribed!"}), 200
-    else:
-        return jsonify({"access": False, "message": "❌ Please subscribe to access bulk prediction."}), 403
+    return jsonify({"message": " File prediction completed successfully."})
 
 @app.route("/bulk_predict", methods=["POST"])
 def bulk_predict():
-    """
-    Predict sentiment for multiple texts from a CSV file.
-    ---
-    parameters:
-      - name: file
-        in: formData
-        required: true
-        type: file
-        description: CSV file containing text to predict
-      - name: email
-        in: formData
-        required: true
-        type: string
-        description: Email to send results
-      - name: username
-        in: formData
-        required: true
-        type: string
-        description: Username to check subscription status
-    responses:
-      200:
-        description: CSV file with predictions returned
-      403:
-        description: Access denied, user not subscribed
-    """
-    # Get the username from form data
-    username = request.form.get('username')
-
-    # Check if the user is subscribed
-    try:
-        response = requests.get(f"http://127.0.0.1:5000/check-subscription?username={username}")
-        data = response.json()
-
-        if data["access"] == False:
-            return jsonify({"error": data["message"]}), 403
-    except Exception as e:
-        return jsonify({"error": "Error checking subscription status"}), 500
-
-    # If the user is subscribed, continue with the bulk prediction
     if 'file' not in request.files:
         return jsonify({"error": "No file part in the request"}), 400
 
     file = request.files['file']
-    email = request.form.get('email')
-
     if file.filename == '':
         return jsonify({"error": "No file selected"}), 400
-    if not email:
-        return jsonify({"error": "Email is required in form-data."}), 400
 
     try:
         df = pd.read_csv(file)
@@ -214,7 +80,7 @@ def bulk_predict():
         rows = []
 
         for text in df[text_column]:
-            result = predict_sentiment(str(text), tokenizer, model, labels)
+            result = predict_sentiment(str(text), analyzer, labels)
 
             row = {
                 "text": text,
@@ -239,24 +105,11 @@ def bulk_predict():
         result_df.to_csv(csv_buffer, index=False)
         csv_buffer.seek(0)
 
-        # ✅ Send email
-        subject = "Sentiment Analysis Results – Detailed Report Inside"
-        body = (
-            "Hello Customer,\n\n"
-            "Thank you for using our Sentiment Analysis service.\n\n"
-            "Please find the attached file containing your predicted results.\n\n"
-            "If you have any questions or feedback, feel free to reach out.\n\n"
-            "Best regards,\n"
-            "Team - SentiTech"
-        )
-
-        send_email_with_attachment(
-            to_email=email,
-            subject=subject,
-            body=body,
-            attachment_name="bulk_predictions.csv",
-            attachment_data=csv_buffer.getvalue().encode("utf-8")
-        )
+        # ✅ Call /notify internally
+        try:
+            requests.get("http://127.0.0.1:5000/notify")
+        except Exception as e:
+            print(f"⚠️ Failed to notify: {e}")
 
         return csv_buffer.getvalue(), 200, {
             'Content-Type': 'text/csv',

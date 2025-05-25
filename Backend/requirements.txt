@@ -1,4 +1,6 @@
+
 flask
-transformers
-torch
 pandas
+vaderSentiment
+flask-swagger-ui
+flask-cors
