@@ -1,0 +1,154 @@
+openapi: 3.0.0
+info:
+  title: Sentiment Analysis API
+  description: API for sentiment analysis of text with user authentication
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:5000
+    description: Development server
+
+paths:
+  /:
+    get:
+      summary: Health check endpoint
+      responses:
+        '200':
+          description: API is running
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Sentiment Analysis API is running."
+
+  /predict:
+    post:
+      summary: Predict sentiment for a single text
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+              required:
+                - text
+      responses:
+        '200':
+          description: Successful prediction
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  text:
+                    type: string
+                  category:
+                    type: string
+                  final_prediction:
+                    type: string
+                  text_analysis:
+                    type: object
+                  sentiment_scores:
+                    type: object
+        '400':
+          description: Bad request - missing text field
+
+  /bulk_predict:
+    post:
+      summary: Predict sentiment for multiple texts from CSV file
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                email:
+                  type: string
+              required:
+                - file
+                - email
+      responses:
+        '200':
+          description: Successful bulk prediction
+          content:
+            text/csv:
+              schema:
+                type: string
+        '400':
+          description: Bad request - missing file or email
+        '500':
+          description: Internal server error
+
+  /signup:
+    post:
+      summary: Register new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                email:
+                  type: string
+              required:
+                - username
+                - password
+                - email
+      responses:
+        '200':
+          description: User registered successfully
+        '400':
+          description: Missing required fields
+        '409':
+          description: Username already exists
+
+  /login:
+    post:
+      summary: Login existing user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+              required:
+                - username
+                - password
+      responses:
+        '200':
+          description: Login successful
+        '400':
+          description: Missing required fields
+        '401':
+          description: Invalid credentials
+
+  /notify:
+    get:
+      summary: Internal notification endpoint
+      responses:
+        '200':
+          description: Notification sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
