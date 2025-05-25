@@ -1,6 +1,7 @@
 import { ChartData } from 'chart.js';
 import { Observable, of, throwError } from 'rxjs';
 import { delay } from 'rxjs/operators';
+import { PredictionResponse } from './prediction.interface';
 
 /**
  * Sample prediction history data for single prediction view
@@ -558,21 +559,43 @@ let csvFilesData = [...SAMPLE_CSV_FILES];
  * @param text Text to analyze
  * @returns Observable with prediction result
  */
-export function mockPredictText(text: string): Observable<any> {
+export function mockPredictText(text: string): PredictionResponse {
   // Simulate API processing time
-  return of({
+  // Generate random confidence value between 30 and 95
+  const confidence = Math.floor(Math.random() * 65) + 30;
+  
+  // Get prediction category
+  const final_prediction = getRandomPrediction();
+  
+  // Generate sentiment scores with highest value matching prediction
+  const sentimentScores = [
+    { name: 'Very Negative', value: Math.floor(Math.random() * 25) + 5 },
+    { name: 'Slightly Negative', value: Math.floor(Math.random() * 25) + 5 },
+    { name: 'Neutral', value: Math.floor(Math.random() * 25) + 5 },
+    { name: 'Slightly Positive', value: Math.floor(Math.random() * 25) + 5 },
+    { name: 'Very Positive', value: Math.floor(Math.random() * 25) + 5 },
+  ];
+  
+  // Ensure the predicted category has the highest confidence
+  const predictedCategoryIndex = sentimentScores.findIndex(
+    (c) => c.name === final_prediction
+  );
+  if (predictedCategoryIndex >= 0) {
+    sentimentScores[predictedCategoryIndex].value = confidence;
+  }
+  
+  const prediction = {
     text: text,
-    category: 'review',
-    final_prediction: getRandomPrediction(),
-    sentiment_scores: generateRandomSentimentScores(),
-    text_analysis: {
-      avg_word_length: (text.length / (text.split(' ').length || 1)).toFixed(1),
-      has_exclamation: text.includes('!'),
-      has_question: text.includes('?'),
-      length: text.length,
-      word_count: text.split(' ').length,
-    },
-  }).pipe(delay(1500)); // Simulate network delay
+    final_prediction: final_prediction,
+    confidence: confidence,
+    sentiment_scores: sentimentScores,
+    timestamp: new Date()
+  };
+  
+  // Add to prediction history
+  addPredictionToHistory(prediction);
+  
+  return prediction;
 }
 
 /**
