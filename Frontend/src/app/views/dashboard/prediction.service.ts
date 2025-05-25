@@ -11,7 +11,7 @@ import { PredictionRequest, PredictionResponse } from './prediction.interface';
 })
 export class PredictionService {
   private apiUrl = environment.apiUrl || 'https://api.yourdomain.com';
-  private useMockData = true;
+  private useMockData = false;
   private authToken: string | null = null;
 
   constructor(private http: HttpClient) {
@@ -25,7 +25,7 @@ export class PredictionService {
       return this.mockLogin(username, password);
     }
     
-    const endpoint = `${this.apiUrl}/auth/login`;
+    const endpoint = `${this.apiUrl}/login`;
     return this.http.post<any>(endpoint, { username, password }).pipe(
       tap(response => {
         if (response && response.token) {
@@ -42,7 +42,7 @@ export class PredictionService {
       return this.mockRegister(email, username, password);
     }
     
-    const endpoint = `${this.apiUrl}/auth/register`;
+    const endpoint = `${this.apiUrl}/signup`;
     return this.http.post<any>(endpoint, { email, username, password }).pipe(
       catchError(this.handleError)
     );
