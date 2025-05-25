@@ -27,18 +27,40 @@ jobs:
         working-directory: ./Frontend
         run: npm run build -- --configuration production --base-href=/AdvSoftTech-Assignment/
 
-      - name: Copy index.html to 404.html
-        working-directory: ./Frontend/dist/coreui-free-angular-admin-template
-        run: cp index.html 404.html
+      # Debug step to find build output directory
+      - name: List build output directories
+        run: |
+          echo "Listing build output directories:"
+          find Frontend/dist -type d | sort
+          echo "Listing HTML files:"
+          find Frontend/dist -name "*.html" | sort
 
-      - name: Add .nojekyll file
-        working-directory: ./Frontend/dist/coreui-free-angular-admin-template
-        run: touch .nojekyll
+      # Dynamically find the correct build output directory
+      - name: Find build directory and prepare for deployment
+        id: find-build-dir
+        run: |
+          BUILD_DIR=$(find Frontend/dist -type d -maxdepth 1 | head -n 2 | tail -n 1)
+          echo "Found build directory: $BUILD_DIR"
+          echo "build_dir=$BUILD_DIR" >> $GITHUB_OUTPUT
+          
+          # Check if index.html exists
+          if [ -f "$BUILD_DIR/index.html" ]; then
+            echo "Found index.html, creating 404.html"
+            cp "$BUILD_DIR/index.html" "$BUILD_DIR/404.html"
+          else
+            echo "WARNING: index.html not found in $BUILD_DIR"
+            find Frontend/dist -name "index.html"
+          fi
+          
+          # Create .nojekyll file
+          touch "$BUILD_DIR/.nojekyll"
+          echo "Created .nojekyll file"
 
+      # Deploy using the dynamically found directory
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: Frontend/dist/coreui-free-angular-admin-template
+          folder: ${{ steps.find-build-dir.outputs.build_dir }}
           branch: gh-pages
           token: ${{ secrets.GITHUB_TOKEN }}
           clean: true
