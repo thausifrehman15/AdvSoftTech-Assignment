@@ -59,33 +59,29 @@ def register_user(username: str, password: str, email: str) -> Tuple[bool, str, 
 
 def login_user(username: str, password: str) -> tuple[bool, str, dict]:
     try:
-        # Load users from JSON file
-        with open('users.json', 'r') as f:
+        users_file = Path('users.json')
+        if not users_file.exists():
+            return False, "No users found", {}
+
+        with open(users_file, 'r') as f:
             users = json.load(f)
 
-        # Debug print - remove in production
-        print(f"Attempting login for user: {username}")
+        # Debug logging
         print(f"Users in database: {users}")
 
         if username not in users:
             return False, "User not found", {}
 
         stored_user = users[username]
-        stored_password = stored_user.get('password')
-
-        # Debug print - remove in production
-        print(f"Stored password: {stored_password}")
-        print(f"Provided password: {password}")
-
-        if password == stored_password:  # In production, use proper password hashing
-            user_data = {
-                'id': stored_user.get('id', str(uuid.uuid4())),
-                'username': username,
-                'email': stored_user.get('email', '')
-            }
-            return True, "Login successful", user_data
-        else:
+        if stored_user['password'] != password:  # In production, use proper password hashing
             return False, "Invalid password", {}
+
+        user_data = {
+            'id': stored_user.get('id', str(uuid.uuid4())),
+            'username': username,
+            'email': stored_user.get('email', '')
+        }
+        return True, "Login successful", user_data
 
     except Exception as e:
         print(f"Login error: {str(e)}")
