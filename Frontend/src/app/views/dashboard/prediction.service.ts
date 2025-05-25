@@ -3,22 +3,14 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, of, throwError } from 'rxjs';
 import { catchError, delay, map, tap } from 'rxjs/operators';
 import { environment } from '../../environment/environment';
-import {
-  mockPredictText,
-  mockUploadCsvFile,
-  mockGetFiles,
-  mockGetFileDetails,
-  mockCheckFileStatus,
-  mockGetUserData,
-  addPredictionToHistory
-} from './datafiles';
+import { addPredictionToHistory, mockCheckFileStatus, mockGetFileDetails, mockGetFiles, mockGetUserData, mockPredictText, mockUploadCsvFile } from './datafiles';
 
 @Injectable({
   providedIn: 'root'
 })
 export class PredictionService {
   private apiUrl = environment.apiUrl || 'https://api.yourdomain.com';
-  private useMockData = true; // Set to false to use real API
+  private useMockData = true;
   private authToken: string | null = null;
 
   constructor(private http: HttpClient) {
@@ -233,4 +225,20 @@ export class PredictionService {
     }
     // If using real API, the history would be saved server-side
   }
+
+  downloadFile(fileId: string): Observable<any> {
+    if (this.useMockData) {
+      return of({ success: true, message: 'File downloaded successfully' }).pipe(delay(800));
+    }
+
+    const endpoint = `${this.apiUrl}/files/${fileId}/download`;
+    return this.http.get(endpoint, { responseType: 'blob', headers: this.getAuthHeaders() }).pipe(
+      tap(response => {
+        // Handle successful download
+        console.log('File downloaded successfully:', response);
+      }),
+      catchError(this.handleError)
+    );
+  }
+
 }

@@ -37,6 +37,7 @@ import { PredictionService } from './prediction.service';
 import { SubscriptionService } from '../../services/subscription.service';
 import { filter, interval, Subscription, takeWhile } from 'rxjs';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { PredictionResponse } from './prediction.interface';
 
 interface CsvFile {
   id: string;
@@ -83,7 +84,7 @@ interface CsvFile {
 
 export class DashboardComponent implements OnInit {
   private _cachedChartData: ChartData | null = null;
-  private _lastPredictionTimeStamp: Date | null = null;
+  private _lastPredictionTimeStamp: Date = new Date(); // Initialize with current date
   private selectedHistoryItem: any = null;
   private statusCheckSubscription: Subscription | null = null;
   private fileStatusSubscriptions = new Map<string, Subscription>();
@@ -104,23 +105,7 @@ export class DashboardComponent implements OnInit {
   public selectedCategories: any[] = [];
   public showCategoryModal: boolean = false;
 
-  // Track the last prediction for chart display
-  public lastSinglePrediction: {
-    text: string;
-    result: string; // The top prediction category
-    confidence: number; // Confidence of top category
-    categories: { name: string; value: number }[]; // All 5 categories with values
-    timestamp: Date;
-  } | null = null;
-
-  public singlePredictionHistory: {
-    text: string;
-    result: string;
-    confidence: number;
-    categories: { name: string; value: number }[];
-    timestamp: Date;
-  }[] = [];
-
+  public lastSinglePrediction: PredictionResponse | null = null;
   // Pie chart options
   public pieChartOptions: ChartOptions = {
     maintainAspectRatio: false,
@@ -138,6 +123,7 @@ export class DashboardComponent implements OnInit {
   // Add this inside your component class
   public pendingFiles: { id: string; name: string; timestamp: Date }[] = [];
   public myFiles: CsvFile[] = []; // This will store user's completed files
+  public singlePredictionHistory: PredictionResponse[] = [];
 
   constructor(
   private http: HttpClient,
@@ -168,77 +154,7 @@ export class DashboardComponent implements OnInit {
     fileName: new FormControl(''),
   });
 
-  public csvFiles: CsvFile[] = [
-    {
-      id: 'csv1',
-      name: 'Sample Data 1',
-      isDefault: false,
-      data: [
-        { class: 'A', value1: 85, value2: 92 },
-        { class: 'B', value1: 72, value2: 68 },
-        { class: 'C', value1: 90, value2: 95 },
-        { class: 'A', value1: 85, value2: 92 },
-        { class: 'B', value1: 72, value2: 68 },
-        { class: 'C', value1: 90, value2: 95 },
-        { class: 'A', value1: 85, value2: 92 },
-        { class: 'B', value1: 72, value2: 68 },
-        { class: 'C', value1: 90, value2: 95 },
-        { class: 'A', value1: 85, value2: 92 },
-        { class: 'B', value1: 72, value2: 68 },
-        { class: 'C', value1: 90, value2: 95 },
-        { class: 'A', value1: 85, value2: 92 },
-        { class: 'B', value1: 72, value2: 68 },
-        { class: 'C', value1: 90, value2: 95 },
-        { class: 'A', value1: 85, value2: 92 },
-        { class: 'B', value1: 72, value2: 68 },
-        { class: 'C', value1: 90, value2: 95 },
-      ],
-      status: 'completed',
-      timestamp: new Date(),
-      chartData: {
-        labels: ['A', 'B', 'C'],
-        datasets: [
-          {
-            label: 'Sample Dataset 1',
-            backgroundColor: 'rgba(179,181,198,0.2)',
-            borderColor: 'rgba(179,181,198,1)',
-            pointBackgroundColor: 'rgba(179,181,198,1)',
-            pointBorderColor: '#fff',
-            pointHoverBackgroundColor: '#fff',
-            pointHoverBorderColor: 'rgba(179,181,198,1)',
-            data: [85, 72, 90],
-          },
-        ],
-      },
-    },
-    {
-      id: 'csv2',
-      name: 'Sample Data 2',
-      isDefault: false, // Added this property
-      data: [
-        { class: 'X', value1: 65, value2: 79 },
-        { class: 'Y', value1: 88, value2: 91 },
-        { class: 'Z', value1: 76, value2: 82 },
-      ],
-      status: 'completed',
-      timestamp: new Date(),
-      chartData: {
-        labels: ['X', 'Y', 'Z'],
-        datasets: [
-          {
-            label: 'Sample Dataset 2',
-            backgroundColor: 'rgba(255,99,132,0.2)',
-            borderColor: 'rgba(255,99,132,1)',
-            pointBackgroundColor: 'rgba(255,99,132,1)',
-            pointBorderColor: '#fff',
-            pointHoverBackgroundColor: '#fff',
-            pointHoverBorderColor: 'rgba(255,99,132,1)',
-            data: [65, 88, 76],
-          },
-        ],
-      },
-    },
-  ];
+  public csvFiles: CsvFile[] = [  ];
 
   chartRadarData: ChartData = {
     labels: [
@@ -330,9 +246,9 @@ export class DashboardComponent implements OnInit {
     // Update the current chart with this prediction's data
     this.lastSinglePrediction = {
       text: prediction.text,
-      result: prediction.result,
+      final_prediction: prediction.final_prediction,
       confidence: prediction.confidence,
-      categories: prediction.categories,
+      sentiment_scores: prediction.sentiment_scores,
       timestamp: prediction.timestamp,
     };
 
@@ -416,11 +332,6 @@ export class DashboardComponent implements OnInit {
         alert('Failed to process prediction. Please try again.');
       },
     });
-  }
-
-  getHeaders(dataRow: any): string[] {
-    if (!dataRow) return [];
-    return Object.keys(dataRow);
   }
 
   /**
@@ -566,10 +477,10 @@ export class DashboardComponent implements OnInit {
 
     // Generate new chart data
     const chartData: ChartData = {
-      labels: this.lastSinglePrediction.categories.map((c) => c.name),
+      labels: this.lastSinglePrediction?.sentiment_scores?.map((c) => c.name) || [],
       datasets: [
         {
-          data: this.lastSinglePrediction.categories.map((c) => c.value),
+          data: this.lastSinglePrediction?.sentiment_scores?.map((c) => c.value) || [],
           backgroundColor: [
             'rgba(25, 135, 84, 0.8)', // Very Positive - green
             'rgba(13, 202, 240, 0.8)', // Slightly Positive - info blue
@@ -584,7 +495,7 @@ export class DashboardComponent implements OnInit {
 
     // Cache the data and timestamp
     this._cachedChartData = chartData;
-    this._lastPredictionTimeStamp = this.lastSinglePrediction.timestamp;
+    this._lastPredictionTimeStamp = this.lastSinglePrediction.timestamp || new Date();
 
     return chartData;
   }
@@ -672,12 +583,6 @@ export class DashboardComponent implements OnInit {
     }
   }
 
-  formatCategoriesForTooltip(categories: any[]): string {
-    if (!categories || !Array.isArray(categories)) return 'No categories';
-
-    return categories.map((cat) => `${cat.name}: ${cat.value}%`).join('\n');
-  }
-
   // Helper method to get color for category
   getCategoryColor(categoryName: string): string {
     const colorMap: Record<string, string> = {
@@ -692,6 +597,7 @@ export class DashboardComponent implements OnInit {
   }
 
   showCategoriesModal(categories: any[]): void {
+    console.log('Categories:', categories);
     this.selectedCategories = categories;
     this.showCategoryModal = true;
 
@@ -932,6 +838,19 @@ export class DashboardComponent implements OnInit {
     this.router.navigate(['/dashboard', tab], { 
       skipLocationChange: false,
       replaceUrl: false
+    });
+  }
+
+  downloadFile(fileId: string): void {
+    this.predictionService.downloadFile(fileId).subscribe({
+      next: (response) => {
+        // Handle successful download
+        console.log('File downloaded successfully:', response);
+      },
+      error: (error) => {
+        // Handle error
+        console.error('Error downloading file:', error);
+      }
     });
   }
 }

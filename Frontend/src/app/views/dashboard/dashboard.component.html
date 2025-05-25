@@ -78,6 +78,7 @@
                       <p class="text-muted">No prediction history available. Make a prediction to see results here.</p>
                     </div>
 
+                    <!-- Update the Single Prediction History table -->
                     <div class="table-responsive" style="max-height: 600px; overflow-y: auto;" *ngIf="singlePredictionHistory.length > 0">
                       <table cTable hover>
                         <thead>
@@ -85,26 +86,43 @@
                             <th>Text</th>
                             <th>Prediction</th>
                             <th>Confidence</th>
-                            <th>Timestamp</th>
+                            <th>Sentiment Scores</th>
                           </tr>
                         </thead>
                         <tbody>
-                          <tr *ngFor="let prediction of getPaginatedData(singlePredictionHistory, historyCurrentPage, historyPageSize)" 
+                          <tr *ngFor="let prediction of getPaginatedData(singlePredictionHistory, historyCurrentPage, historyPageSize)"
                               (click)="showHistoryItemChart(prediction)"
                               [class.selected-history-item]="isSelectedHistoryItem(prediction)"
                               style="cursor: pointer;">
+                            <!-- Text column -->
                             <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" 
                                 [title]="prediction.text">
                               {{ prediction.text }}
                             </td>
-                            <td>{{ prediction.result }}</td>
+                            
+                            <!-- Prediction column -->
+                            <td>
+                              <span class="badge" [style.background-color]="getCategoryColor(prediction.final_prediction)">
+                                {{ prediction.final_prediction }}
+                              </span>
+                            </td>
+                            
+                            <!-- Confidence column -->
                             <td>{{ prediction.confidence }}%</td>
-                            <td>{{ prediction.timestamp | date:'short' }}</td>
+                            
+                            <!-- Sentiment Scores column -->
+                            <td>
+                              <span class="badge rounded-pill bg-primary" 
+                                    (click)="showCategoriesModal(prediction.sentiment_scores); $event.stopPropagation();" 
+                                    style="cursor: pointer;">
+                                View Details
+                              </span>
+                            </td>
                           </tr>
                         </tbody>
                       </table>
                     </div>
-                    
+
                     <!-- Prediction History Pagination controls - Always show but with disabled state when appropriate -->
                     <div class="d-flex justify-content-between align-items-center mt-3">
                       <div>
@@ -212,53 +230,66 @@
 
                       <c-card>
                         <c-card-header>
-                          <strong>{{ currentCsvFile.name }} - Data</strong>
+                          <div class="d-flex justify-content-between align-items-center">
+                            <strong>{{ currentCsvFile.name }} - Data</strong>
+                            <button 
+                              cButton 
+                              color="success" 
+                              size="sm" 
+                              variant="outline"
+                              (click)="downloadFile(currentCsvFile.id)">
+                              <svg 
+                                xmlns="http://www.w3.org/2000/svg" 
+                                width="16" 
+                                height="16" 
+                                fill="currentColor" 
+                                style="transform: scaleY(-1);">
+                                class="me-1"
+                                viewBox="0 0 16 16">
+                                <path d="M8 0a8 8 0 0 0-8 8 8 8 0 0 0 8 8 8 8 0 0 0 8-8 8 8 0 0 0-8-8zm0 2.5a5.5 5.5 0 1 1 0 11 5.5 5.5 0 0 1 0-11zM6 8v3h4V8h2l-4-4-4 4h2z"/>
+                              </svg>
+                              Download CSV
+                            </button>
+                          </div>
                         </c-card-header>
                         <c-card-body>
                           <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
                             <table cTable hover>
                               <thead>
                                 <tr>
-                                  <th *ngFor="let header of getHeaders(currentCsvFile.data[0])">
-                                    {{ header }}
-                                  </th>
+                                  <th>Text</th>
+                                  <th>Prediction</th>
+                                  <th>Confidence</th>
+                                  <th>Sentiment Scores</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 <tr *ngFor="let row of getPaginatedData(currentCsvFile.data, currentPage, pageSize)">
-                                  <ng-container *ngFor="let header of getHeaders(currentCsvFile.data[0])">
-                                    <td *ngIf="header !== 'categories'; else categoriesCell">
-                                      <!-- Special handling for different data types -->
-                                      <ng-container *ngIf="header === 'Confidence'; else regularContent">
-                                        {{ row[header] }}%
-                                      </ng-container>
-                                      <ng-template #regularContent>
-                                        {{ row[header] }}
-                                      </ng-template>
-                                    </td>
-                                    
-                                    <ng-template #categoriesCell>
-                                      <td>
-                                        <!-- Display categories as a tooltip or formatted text -->
-                                        <div class="categories-summary" [title]="formatCategoriesForTooltip(row[header])">
-                                          <span class="badge" *ngFor="let cat of row[header].slice(0, 2)" 
-                                                [style.background-color]="getCategoryColor(cat.name)"
-                                                style="margin-right: 3px; font-size: 0.7rem;">
-                                          {{ cat.name }}: {{ cat.value }}%
-                                          </span>
-                                          <span *ngIf="row[header].length > 2" style="font-size: 0.7rem;">
-                                            +{{ row[header].length - 2 }} more
-                                          </span>
-                                        </div>
-                                      </td>
-                                      <td>
-                                        <span class="badge rounded-pill bg-primary" (click)="showCategoriesModal(row[header])" style="cursor: pointer;">
-                                          View Details
-                                        </span>
-                                      </td>
-                                    </ng-template>
-                                  </ng-container>
-                                </tr>                            
+                                  <!-- Text column -->
+                                  <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" 
+                                      [title]="row.text || row.Text">
+                                    {{ row.text || row.Text }}
+                                  </td>
+                                  
+                                  <!-- Prediction column -->
+                                  <td>
+                                    <span class="badge" [style.background-color]="getCategoryColor(row.final_prediction || row.Prediction)">
+                                      {{ row.final_prediction || row.Prediction }}
+                                    </span>
+                                  </td>
+                                  
+                                  <!-- Confidence column -->
+                                  <td>{{ row.confidence || row.Confidence }}%</td>
+                                  
+                                  <!-- Categories/Sentiment Scores column -->
+                                  <td>
+                                    <span class="badge rounded-pill bg-primary" 
+                                          (click)="showCategoriesModal(row.sentiment_scores || row.categories)" 
+                                          style="cursor: pointer;">
+                                      View Details
+                                    </span>
+                                  </td>
+                                </tr>
                               </tbody>
                             </table>
                           </div> 
