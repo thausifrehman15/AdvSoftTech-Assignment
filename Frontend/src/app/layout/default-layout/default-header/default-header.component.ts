@@ -24,11 +24,12 @@ import {
 
 import { IconDirective } from '@coreui/icons-angular';
 import { PredictionService } from '../../../views/dashboard/prediction.service';
+import { UserAvatarComponent } from '../../../components/user-avatar/user-avatar.component';
 
 @Component({
     selector: 'app-default-header',
     templateUrl: './default-header.component.html',
-  imports: [ContainerComponent, HeaderTogglerDirective, SidebarToggleDirective, IconDirective, HeaderNavComponent, NavItemComponent, NavLinkDirective, RouterLink, RouterLinkActive, NgTemplateOutlet, BreadcrumbRouterComponent, DropdownComponent, DropdownToggleDirective, AvatarComponent, DropdownMenuDirective, DropdownHeaderDirective, DropdownItemDirective, BadgeComponent, DropdownDividerDirective]
+  imports: [ContainerComponent, HeaderTogglerDirective, SidebarToggleDirective, IconDirective, HeaderNavComponent, NavItemComponent, NavLinkDirective, RouterLink, RouterLinkActive, NgTemplateOutlet, BreadcrumbRouterComponent, DropdownComponent, DropdownToggleDirective, AvatarComponent, DropdownMenuDirective, DropdownHeaderDirective, DropdownItemDirective, BadgeComponent, DropdownDividerDirective, UserAvatarComponent]
 })
 export class DefaultHeaderComponent extends HeaderComponent {
 
@@ -131,4 +132,10 @@ export class DefaultHeaderComponent extends HeaderComponent {
     this.predictionService.logout();
     this.router.navigate(['/login']);
   }
+
+  getCurrentUsername(): string {
+    const storedUsername = localStorage.getItem('username');
+    return storedUsername|| 'User';
+  }
+
 }

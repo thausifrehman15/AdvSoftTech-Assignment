@@ -291,49 +291,96 @@ export class DashboardComponent implements OnInit {
 
   predictSingleText(): void {
     const textValue = this.singlePredictionForm.get('textInput')?.value;
-    if (!textValue) return;
+    if (!textValue || textValue.trim() === '') {
+      return;
+    }
+    
     this.isProcessingSinglePrediction = true;
 
     this.predictionService.predictText(textValue).subscribe({
       next: (result) => {
-        const categories = Object.entries(result.sentiment_scores).map(
-          ([name, value]) => ({
-            name: name === 'neutral' ? 'Neutral' : name,
-            value: Number(((value as number) * 100).toFixed(2)),
-          })
-        );
+        try {
+          // Handle both array and object formats for sentiment_scores
+          let categories: {name: string, value: number}[] = [];
+          
+          if (Array.isArray(result.sentiment_scores)) {
+            // If sentiment_scores is already an array
+            categories = result.sentiment_scores.map(score => ({
+              name: score.name === 'neutral' ? 'Neutral' : score.name,
+              value: typeof score.value === 'number' ? score.value : 
+                    Number((Number(score.value) * 100).toFixed(2))
+            }));
+          } else if (result.sentiment_scores && typeof result.sentiment_scores === 'object') {
+            // If sentiment_scores is an object
+            categories = Object.entries(result.sentiment_scores).map(
+              ([name, value]) => ({
+                name: name === 'neutral' ? 'Neutral' : name,
+                value: Number((Number(value) * 100).toFixed(2)),
+              })
+            );
+          }
 
-        const prediction = {
-          text: textValue,
-          result: result.final_prediction,
-          confidence: Number(
-            (result.sentiment_scores[result.final_prediction] * 100).toFixed(2)
-          ),
-          categories: categories,
-          timestamp: new Date(),
-          rawResponse: result,
-        };
+          // Calculate confidence (highest score)
+          let confidence = 0;
+          if (result.final_prediction) {
+            // Find the category matching the final prediction
+            const matchingCategory = categories.find(
+              c => c.name.toLowerCase() === result.final_prediction?.toLowerCase()
+            );
+            
+            if (matchingCategory) {
+              confidence = matchingCategory.value;
+            } else if (categories.length > 0) {
+              // If no match found, use highest score
+              confidence = Math.max(...categories.map(c => c.value));
+            }
+          }
 
-        this.predictionService.savePredictionToHistory(prediction);
+          const prediction = {
+            text: textValue,
+            final_prediction: result.final_prediction,
+            confidence: confidence,
+            sentiment_scores: categories,
+            timestamp: new Date(),
+          };
 
-        this.predictionService.getUserData().subscribe((userData) => {
-          this.singlePredictionHistory = userData.predictionHistory;
-          this.lastSinglePrediction = { ...prediction };
-          this.selectedHistoryItem = this.singlePredictionHistory[0];
+          // Save prediction to history
+          this.predictionService.savePredictionToHistory(prediction);
+          
+          // // Update UI immediately without calling getUserData again
+          // if (Array.isArray(this.singlePredictionHistory)) {
+          //   this.singlePredictionHistory.unshift(prediction);
+          // } else {
+          //   this.singlePredictionHistory = [prediction];
+          // }
+          
+          this.lastSinglePrediction = prediction;
+          this.selectedHistoryItem = prediction;
           this.historyCurrentPage = 0;
           this._cachedChartData = null;
           this.singlePredictionForm.reset();
+        } catch (err) {
+          console.error('Error processing prediction result:', err);
+          alert('Failed to process prediction result. Please try again.');
+        } finally {
           this.isProcessingSinglePrediction = false;
-        });
+        }
       },
       error: (error) => {
         console.error('[DEBUG] Error in predictSingleText:', error);
         this.isProcessingSinglePrediction = false;
-        alert('Failed to process prediction. Please try again.');
-      },
+        
+        // More user-friendly error message
+        if (error.status === 0) {
+          alert('Network error. Please check your internet connection and try again.');
+        } else if (error.status === 429) {
+          alert('Too many requests. Please wait a moment and try again.');
+        } else {
+          alert(`Failed to process prediction: ${error.message || 'Unknown error'}`);
+        }
+      }
     });
   }
-
   /**
    * Removes a CSV file from the visualization
    * @param fileId The ID of the file to remove

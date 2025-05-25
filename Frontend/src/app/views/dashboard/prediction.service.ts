@@ -4,6 +4,7 @@ import { Observable, of, throwError } from 'rxjs';
 import { catchError, delay, map, tap } from 'rxjs/operators';
 import { environment } from '../../environment/environment';
 import { addPredictionToHistory, mockCheckFileStatus, mockGetFileDetails, mockGetFiles, mockGetUserData, mockPredictText, mockUploadCsvFile } from './datafiles';
+import { PredictionRequest, PredictionResponse } from './prediction.interface';
 
 @Injectable({
   providedIn: 'root'
@@ -70,7 +71,7 @@ export class PredictionService {
       const mockToken = `mock-jwt-token-${Math.random().toString(36).substring(2, 15)}`;
       this.authToken = mockToken;
       localStorage.setItem('authToken', mockToken); // Fixed: using mockToken instead of response.token
-    
+      localStorage.setItem('username', user.username); // Store username for later use
       return of({
         token: mockToken,
         user: { 
@@ -132,14 +133,14 @@ export class PredictionService {
    * @param text Text to analyze
    * @returns Observable with prediction result
    */
-  predictText(text: string): Observable<any> {
+  predictText(text: string): Observable<PredictionResponse> {
     if (this.useMockData) {
-      return mockPredictText(text);
+      return of(mockPredictText(text));
     }
     
     const endpoint = `${this.apiUrl}/predict`;
     const payload = { text };
-    return this.http.post<any>(endpoint, payload, { headers: this.getAuthHeaders() });
+    return this.http.post<PredictionResponse>(endpoint, payload, { headers: this.getAuthHeaders() });
   }
 
   /**
