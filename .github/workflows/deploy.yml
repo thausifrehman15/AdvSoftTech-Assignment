@@ -2,36 +2,74 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ thausif, main ] 
+    branches:
+      - main
+      - thausif
+  # Allow manual triggering
   workflow_dispatch:
+
+# Add permissions block
+permissions:
+  contents: write
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
           cache: 'npm'
-          cache-dependency-path: 'Frontend/package-lock.json'
+          cache-dependency-path: './Frontend/package-lock.json'
 
       - name: Install dependencies
-        working-directory: ./Frontend
-        run: npm ci
+        run: |
+          cd Frontend
+          npm ci --legacy-peer-deps
 
-      - name: Build
-        working-directory: ./Frontend
-        run: npm run build -- --configuration production --base-href=/AdvSoftTech-Assignment/
+      - name: Update base URL for GitHub Pages
+        run: |
+          cd Frontend
+          sed -i 's/<base href="\/">/<base href="\/AdvSoftTech-Assignment\/">/' src/index.html
+      
+      - name: Build Angular project
+        run: |
+          cd Frontend
+          npm run build -- --configuration production --base-href=/AdvSoftTech-Assignment/ --legacy-peer-deps
 
-      # Simplified deployment that works with the correct output path
+      - name: Debug directory structure
+        run: |
+          find Frontend/dist -type d | sort
+          find Frontend/dist -name "index.html" -type f
+
+      # Fix the variable capture so it's available for the deploy step
+      - name: Add routing files and set output
+        id: find-output
+        run: |
+          # Find the directory containing index.html
+          INDEX_DIR=$(find Frontend/dist -name "index.html" -type f | xargs dirname)
+          if [ -n "$INDEX_DIR" ]; then
+            echo "Found index.html in $INDEX_DIR"
+            cd "$INDEX_DIR"
+            
+            # Create necessary files for GitHub Pages
+            echo "/* /index.html 200" > _redirects
+            cp index.html 404.html
+            touch .nojekyll
+            
+            echo "output_dir=$INDEX_DIR" >> $GITHUB_OUTPUT
+          else
+            echo "Error: Could not find index.html in build output"
+            exit 1
+          fi
+
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
-          folder: Frontend/dist/coreui-free-angular-admin-template
+          folder: ${{ steps.find-output.outputs.output_dir || 'Frontend/dist/coreui-free-angular-admin-template' }}
           branch: gh-pages
-          token: ${{ secrets.DEPLOY_TOKEN }}  # Use the custom token
           clean: true
