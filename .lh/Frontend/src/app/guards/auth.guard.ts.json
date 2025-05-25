@@ -1,0 +1,30 @@
+{
+    "sourceFile": "Frontend/src/app/guards/auth.guard.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 3,
+            "patches": [
+                {
+                    "date": 1747839585324,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1747917928921,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -9,10 +9,8 @@\n   if (predictionService.isLoggedIn()) {\r\n     // User is logged in, allow access\r\n     return true;\r\n   } else {\r\n-    // User is not logged in, redirect to login page\r\n-    // Store the attempted URL for redirecting later\r\n     const returnUrl = state.url;\r\n     \r\n     // Navigate to login page with return URL\r\n     router.navigate(['/login'], { \r\n"
+                },
+                {
+                    "date": 1747917934802,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -6,14 +6,11 @@\n   const predictionService = inject(PredictionService);\r\n   const router = inject(Router);\r\n \r\n   if (predictionService.isLoggedIn()) {\r\n-    // User is logged in, allow access\r\n     return true;\r\n   } else {\r\n     const returnUrl = state.url;\r\n-    \r\n-    // Navigate to login page with return URL\r\n     router.navigate(['/login'], { \r\n       queryParams: { returnUrl }\r\n     });\r\n     \r\n"
+                },
+                {
+                    "date": 1748182421679,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -12,8 +12,7 @@\n     const returnUrl = state.url;\r\n     router.navigate(['/login'], { \r\n       queryParams: { returnUrl }\r\n     });\r\n-    \r\n     return false;\r\n   }\r\n };\n\\ No newline at end of file\n"
+                }
+            ],
+            "date": 1747839585324,
+            "name": "Commit-0",
+            "content": "import { inject } from '@angular/core';\r\nimport { CanActivateFn, Router } from '@angular/router';\r\nimport { PredictionService } from '../views/dashboard/prediction.service';\r\n\r\nexport const authGuard: CanActivateFn = (route, state) => {\r\n  const predictionService = inject(PredictionService);\r\n  const router = inject(Router);\r\n\r\n  if (predictionService.isLoggedIn()) {\r\n    // User is logged in, allow access\r\n    return true;\r\n  } else {\r\n    // User is not logged in, redirect to login page\r\n    // Store the attempted URL for redirecting later\r\n    const returnUrl = state.url;\r\n    \r\n    // Navigate to login page with return URL\r\n    router.navigate(['/login'], { \r\n      queryParams: { returnUrl }\r\n    });\r\n    \r\n    return false;\r\n  }\r\n};"
+        }
+    ]
+}

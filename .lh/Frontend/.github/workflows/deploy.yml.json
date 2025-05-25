@@ -1,0 +1,18 @@
+{
+    "sourceFile": "Frontend/.github/workflows/deploy.yml",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1748189362206,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1748189362206,
+            "name": "Commit-0",
+            "content": "name: Deploy to GitHub Pages\r\n\r\non:\r\n  push:\r\n    branches: [ main ]\r\n  workflow_dispatch:  # Allows manual triggering from the GitHub UI\r\n\r\njobs:\r\n  build-and-deploy:\r\n    runs-on: ubuntu-latest\r\n    steps:\r\n      - name: Checkout\r\n        uses: actions/checkout@v3\r\n\r\n      - name: Set up Node.js\r\n        uses: actions/setup-node@v3\r\n        with:\r\n          node-version: '20'\r\n          cache: 'npm'\r\n          cache-dependency-path: 'Frontend/package-lock.json'\r\n\r\n      - name: Install dependencies\r\n        working-directory: ./Frontend\r\n        run: npm ci\r\n\r\n      - name: Build\r\n        working-directory: ./Frontend\r\n        run: npm run build -- --configuration production --base-href=/AdvSoftTech-Assignment/\r\n\r\n      - name: Copy index.html to 404.html\r\n        working-directory: ./Frontend/dist/coreui-free-angular-admin-template\r\n        run: cp index.html 404.html\r\n\r\n      - name: Add .nojekyll file\r\n        working-directory: ./Frontend/dist/coreui-free-angular-admin-template\r\n        run: touch .nojekyll\r\n\r\n      - name: Deploy to GitHub Pages\r\n        uses: JamesIves/github-pages-deploy-action@v4\r\n        with:\r\n          folder: Frontend/dist/coreui-free-angular-admin-template\r\n          branch: gh-pages\r\n          token: ${{ secrets.GITHUB_TOKEN }}\r\n          clean: true"
+        }
+    ]
+}

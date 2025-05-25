@@ -1,0 +1,18 @@
+{
+    "sourceFile": "Frontend/src/app/interceptors/auth.interceptor.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1747918066751,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1747918066751,
+            "name": "Commit-0",
+            "content": "import { Injectable } from '@angular/core';\r\nimport {\r\n  HttpRequest,\r\n  HttpHandler,\r\n  HttpEvent,\r\n  HttpInterceptor,\r\n  HttpErrorResponse\r\n} from '@angular/common/http';\r\nimport { Observable, throwError } from 'rxjs';\r\nimport { catchError } from 'rxjs/operators';\r\nimport { Router } from '@angular/router';\r\n\r\n@Injectable()\r\nexport class AuthInterceptor implements HttpInterceptor {\r\n  \r\n  constructor(private router: Router) {}\r\n\r\n  intercept(request: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {\r\n    // Get auth token and username from localStorage\r\n    const authToken = localStorage.getItem('authToken');\r\n    const username = localStorage.getItem('username');\r\n\r\n    // Skip adding auth headers for login/register requests\r\n    if (request.url.includes('/auth/login') || request.url.includes('/auth/register')) {\r\n      return next.handle(request);\r\n    }\r\n\r\n    // Clone the request and add auth headers\r\n    let modifiedRequest = request;\r\n    \r\n    // Add headers based on what we have\r\n    if (authToken || username) {\r\n      const headers: {[key: string]: string} = {};\r\n      \r\n      if (authToken) {\r\n        headers['Authorization'] = `Bearer ${authToken}`;\r\n      }\r\n      \r\n      if (username) {\r\n        headers['X-Username'] = username;\r\n      }\r\n      \r\n      // For FormData requests, we don't want to set Content-Type\r\n      if (!(request.body instanceof FormData)) {\r\n        headers['Content-Type'] = 'application/json';\r\n      }\r\n      \r\n      modifiedRequest = request.clone({\r\n        setHeaders: headers\r\n      });\r\n    }\r\n\r\n    return next.handle(modifiedRequest).pipe(\r\n      catchError((error: HttpErrorResponse) => {\r\n        // Handle 401 Unauthorized responses\r\n        if (error.status === 401) {\r\n          localStorage.removeItem('authToken');\r\n          localStorage.removeItem('username');\r\n          this.router.navigate(['/login']);\r\n        }\r\n        return throwError(() => error);\r\n      })\r\n    );\r\n  }\r\n}"
+        }
+    ]
+}

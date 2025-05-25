@@ -1,0 +1,18 @@
+{
+    "sourceFile": "Frontend/src/app/interfaces/prediction/user.interface.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1747917288999,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1747917288999,
+            "name": "Commit-0",
+            "content": "import { PredictionHistoryItem } from './prediction.interface';\r\nimport { FileListItem } from './file.interface';\r\n\r\nexport interface UserDataResponse {\r\n  predictionHistory: PredictionHistoryItem[];\r\n  pendingFiles: FileListItem[];\r\n  completedFiles: FileListItem[];\r\n}"
+        }
+    ]
+}
