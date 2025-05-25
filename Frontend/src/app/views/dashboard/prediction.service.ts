@@ -30,7 +30,10 @@ export class PredictionService {
       tap(response => {
         if (response && response.token) {
           this.authToken = response.token;
-          localStorage.setItem('authToken', response.token); // Using direct value instead of this.authToken
+            localStorage.setItem('authToken', response.token);
+            if (response.user && response.user.username) {
+            localStorage.setItem('username', response.user.username);
+            }
         }
       }),
       catchError(this.handleError)
@@ -122,9 +125,11 @@ export class PredictionService {
   // Get headers with auth token
   private getAuthHeaders(): HttpHeaders {
     // Ensure we never pass null to the Authorization header
+    const username = localStorage.getItem('username') || '';
     return new HttpHeaders({
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${this.authToken || ''}` // Use empty string as fallback
+      'authToken': `Bearer ${this.authToken || ''}`, // Use empty string as fallback
+      'username': username
     });
   }
 
