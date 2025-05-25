@@ -59,24 +59,34 @@ def register_user(username: str, password: str, email: str) -> Tuple[bool, str, 
 
 def login_user(username: str, password: str) -> tuple[bool, str, dict]:
     try:
-        with open(USERS_FILE, 'r') as f:
+        # Load users from JSON file
+        with open('users.json', 'r') as f:
             users = json.load(f)
-        
+
+        # Debug print - remove in production
+        print(f"Attempting login for user: {username}")
+        print(f"Users in database: {users}")
+
         if username not in users:
             return False, "User not found", {}
-            
-        stored_password = users[username]['password']
-        if not check_password_hash(stored_password, password):
+
+        stored_user = users[username]
+        stored_password = stored_user.get('password')
+
+        # Debug print - remove in production
+        print(f"Stored password: {stored_password}")
+        print(f"Provided password: {password}")
+
+        if password == stored_password:  # In production, use proper password hashing
+            user_data = {
+                'id': stored_user.get('id', str(uuid.uuid4())),
+                'username': username,
+                'email': stored_user.get('email', '')
+            }
+            return True, "Login successful", user_data
+        else:
             return False, "Invalid password", {}
-            
-        user_data = {
-            'id': users[username].get('id', str(uuid.uuid4())),
-            'username': username,
-            'email': users[username].get('email', '')
-        }
-        
-        return True, "Login successful", user_data
-        
+
     except Exception as e:
         print(f"Login error: {str(e)}")
-        return False, "Login failed", {}
+        return False, f"Login failed: {str(e)}", {}
