@@ -91,35 +91,47 @@ def predict():
 
 @app.route("/signup", methods=["POST"])
 def signup():
-    data = request.get_json()
-    email = data.get("email")
-    username = data.get("username")
-    password = data.get("password")
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "success": False,
+                "message": "No data provided"
+            }), 400
 
-    if not email or not username or not password:
-        return jsonify({"success": False, "message": "Email, Username, and Password are required"}), 400
+        username = data.get("username")
+        password = data.get("password")
+        email = data.get("email")
 
-    success, message, user_data = register_user(username, password, email)
+        if not all([username, password, email]):
+            return jsonify({
+                "success": False,
+                "message": "Email, Username, and Password are required"
+            }), 400
 
-    if success:
-        response = {
-            "success": True,
-            "message": message,
-            "user": {
-                "id": user_data['id'],
-                "username": user_data['username'],
-                "email": user_data['email']
+        success, message, user_data = register_user(username, password, email)
+
+        if success:
+            response = {
+                "success": True,
+                "message": message,
+                "user": user_data
             }
-        }
-        status = 200
-    else:
-        response = {
-            "success": False,
-            "message": message
-        }
-        status = 409
+            status_code = 200
+        else:
+            response = {
+                "success": False,
+                "message": message
+            }
+            status_code = 409
 
-    return jsonify(response), status
+        return jsonify(response), status_code
+
+    except Exception as e:
+        return jsonify({
+            "success": False,
+            "message": f"Server error: {str(e)}"
+        }), 500
 
 @app.route("/login", methods=["POST"]) 
 def login():
