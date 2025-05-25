@@ -357,7 +357,7 @@ export class DashboardComponent implements OnInit {
    */
   deleteCsvFile(fileId: string, event: Event): void {
     // Stop the event from propagating (to prevent tab selection)
-    // Stop event propagation to prevent tab selection
+    // Stop event propagation to prevent tab selectionr
     event.stopPropagation();
 
     // Find and remove the file
@@ -437,40 +437,20 @@ export class DashboardComponent implements OnInit {
   }
 
   predictCsvFile(): void {
+    console.log('predictCsvFile method triggered'); // Debug log
     const file = this.fileUploadForm.get('csvFile')?.value;
 
     if (!file) {
+      console.error('No file selected'); // Debug log
       alert('Please select a file first');
       return;
     }
 
-    // Upload file for prediction
-    this.predictionService.uploadCsvForPrediction(file, '', '').subscribe({
+    console.log('Selected file:', file); // Debug log
+    this.predictionService.uploadCsvForPrediction(file, 'arpan', 'arpan@example.com').subscribe({
       next: (response) => {
-        if (!response || !response.fileId) {
-          // Handle null or invalid response
-          alert('Failed to upload file. Please try again.');
-          return;
-        }
-
-        // Check if file already exists in pending files to avoid duplication
-        const existingPendingFileIndex = this.pendingFiles.findIndex(
-          (pf) => pf.id === response.fileId
-        );
-        if (existingPendingFileIndex === -1) {
-          // Only add to pending files if it's not already there
-          this.pendingFiles.push({
-            id: response.fileId,
-            name: response.name || file.name,
-            timestamp: new Date(response.timestamp) || new Date(),
-          });
-        }
-
-        // Reset form
-        this.fileUploadForm.reset();
-
-        // Start polling for status updates
-        this.pollFileStatus(response.fileId);
+        console.log('File upload successful'); // Debug log
+        // Removed file download logic
       },
       error: (error) => {
         console.error('Error uploading file:', error);

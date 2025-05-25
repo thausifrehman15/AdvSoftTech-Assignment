@@ -270,19 +270,25 @@ checkCurrentUserSubscription(): Observable<CheckSubscriptionResponse> {
 
 // ... (rest of your service: predictText, uploadCsvForPrediction, etc.) ...
 
-  uploadCsvForPrediction(file: File, username: string, email: string): Observable<{ fileId: string; name: string; timestamp: Date }> {
-    if (this.useMockData) {
-      return mockUploadCsvFile(file);
-    }
-
-    const endpoint = `${this.apiUrl}${PredictionService.BULK_PREDICT_ENDPOINT}`;
+  uploadCsvForPrediction(file: File, username: string, email: string): Observable<Blob> {
+    const endpoint = `${this.apiUrl}/bulk_predict`;
     const formData = new FormData();
     formData.append('file', file, file.name);
-    formData.append('username', username);  // Include username in the form data
-    formData.append('email', email);       // Include email in the form data
+    formData.append('username', username);
+    formData.append('email', email);
 
-    return this.http.post<{ fileId: string; name: string; timestamp: Date }>(endpoint, formData).pipe(
-      tap(response => console.log('CSV upload response:', response))
+    console.log('Form data being sent:', {
+      file: file.name,
+      username: username,
+      email: email,
+    }); // Debug log
+
+    return this.http.post(endpoint, formData, { responseType: 'blob' }).pipe(
+      tap(() => console.log('CSV upload successful')),
+      catchError((error: HttpErrorResponse) => {
+        console.error('Error uploading CSV:', error);
+        return throwError(() => new Error('Failed to upload CSV file.'));
+      })
     );
   }
 

@@ -221,36 +221,34 @@ def bulk_predict():
       403:
         description: Access denied, user not subscribed
     """
-    # Get the username from form data
-    username = request.form.get('username')
-
-    # Check if the user is subscribed
     try:
+        # Get the username from form data
+        username = request.form.get('username')
+        print(f"DEBUG: Username received in /bulk_predict: {username}")
+
+        # Check if the user is subscribed
         response = requests.get(f"http://127.0.0.1:5000/check-subscription?username={username}")
-        print(f"DEBUG: Calling internal API: {response}")
+        print(f"DEBUG: Response from /check-subscription: {response.status_code}, {response.text}")
+
+        # Parse the response
         data = response.json()
+        print(f"DEBUG: Parsed response: {data}")
 
         if data["access"] == False:
             return jsonify({"error": data["message"]}), 403
-    except Exception as e:
-        print(f"ERROR: Generic unexpected exception during subscription check for '{username}': {str(e)}")
-        import traceback # Make sure this import is here
-        traceback.print_exc() # THIS WILL PRINT THE ACTUAL PYTHON ERROR
-        return jsonify({"error": "Error checking subscription status"}), 500
 
-    # If the user is subscribed, continue with the bulk prediction
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part in the request"}), 400
+        # If the user is subscribed, continue with the bulk prediction
+        if 'file' not in request.files:
+            return jsonify({"error": "No file part in the request"}), 400
 
-    file = request.files['file']
-    email = request.form.get('email')
+        file = request.files['file']
+        email = request.form.get('email')
 
-    if file.filename == '':
-        return jsonify({"error": "No file selected"}), 400
-    if not email:
-        return jsonify({"error": "Email is required in form-data."}), 400
+        if file.filename == '':
+            return jsonify({"error": "No file selected"}), 400
+        if not email:
+            return jsonify({"error": "Email is required in form-data."}), 400
 
-    try:
         df = pd.read_csv(file)
 
         if 'text' in df.columns:
@@ -313,4 +311,5 @@ def bulk_predict():
         }
 
     except Exception as e:
+        print("Error during bulk prediction:", str(e))
         return jsonify({"error": str(e)}), 500
