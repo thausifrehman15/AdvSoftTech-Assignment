@@ -35,11 +35,12 @@ export interface PredictionRequest {
   text: string;
 }
 
+
 export interface PredictionResponse {
   text: string;
   confidence: number;
   final_prediction?: string;
-  sentiment_scores?: {name:string,value:number}[];
+  sentiment_scores?: {name:string,value:number}[];  
   timestamp?: Date;
 }
 

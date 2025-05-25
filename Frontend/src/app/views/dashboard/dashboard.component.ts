@@ -40,6 +40,7 @@ import { filter, interval, Subscription, takeWhile } from 'rxjs';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { PredictionResponse } from './prediction.interface';
 
+
 interface CsvFile {
   id: string;
   name: string;
@@ -306,19 +307,24 @@ export class DashboardComponent implements OnInit {
 
     this.predictionService.predictText(textValue).subscribe({
       next: (result) => {
-        const categories = Object.entries(result.sentiment_scores).map(
-          ([name, value]) => ({
-            name: name === 'neutral' ? 'Neutral' : name,
-            value: Number(((value as number) * 100).toFixed(2)),
-          })
-        );
+        const categories = result.sentiment_scores
+          ? Object.entries(result.sentiment_scores).map(([name, value]) => ({
+              name: name === 'neutral' ? 'Neutral' : name,
+              value: typeof value === 'number' ? Number((value * 100).toFixed(2)) : 0,
+            }))
+          : [];
+
+        const confidence =
+          result.sentiment_scores &&
+          result.final_prediction &&
+          result.final_prediction in result.sentiment_scores
+            ? Number(((Number(result.sentiment_scores[result.final_prediction as keyof typeof result.sentiment_scores]) || 0) * 100).toFixed(2))
+            : 0;
 
         const prediction = {
           text: textValue,
-          result: result.final_prediction,
-          confidence: Number(
-            (result.sentiment_scores[result.final_prediction] * 100).toFixed(2)
-          ),
+          result: result.final_prediction || 'Unknown',
+          confidence: confidence,
           categories: categories,
           timestamp: new Date(),
           rawResponse: result,

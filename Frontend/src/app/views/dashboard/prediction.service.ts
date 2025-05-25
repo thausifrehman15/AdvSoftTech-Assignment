@@ -7,14 +7,17 @@ import { addPredictionToHistory, mockCheckFileStatus, mockGetFileDetails, mockGe
 import { CheckSubscriptionResponse } from './check-subscription-response.interface';
 import { LoginResponse } from './login-response.interface';
 import { RegisterResponse, PredictionResponse } from './prediction.interface';
+import { NotifyResponse } from './notify-response.interface'; // Assuming it's in the same folder
+
 
 @Injectable({
   providedIn: 'root'
 })
 export class PredictionService {
   private apiUrl = environment.apiUrl || 'https://api.yourdomain.com';
-  private useMockData = true;
+  private useMockData = false;
   private authToken: string | null = null;
+  static BULK_PREDICT_ENDPOINT: any;
 
   constructor(private http: HttpClient) {
     // Check for saved token in local storage
@@ -23,6 +26,8 @@ export class PredictionService {
 
   // Inside the PredictionService class
 // ...
+
+
 
 // Helper to get the current username (you might need to adapt this)
 getCurrentUsername(): string | null {
@@ -119,7 +124,7 @@ getCurrentUsername(): string | null {
   }
 
   private mockRegister(email: string, username: string, password: string): Observable<RegisterResponse> {
-    return of({ message: 'User registered successfully (mock)' }).pipe(delay(500));
+    return of({ success: true, message: 'User registered successfully (mock)' }).pipe(delay(500));
   }
 
   // Error handling
@@ -136,6 +141,51 @@ getCurrentUsername(): string | null {
       'Authorization': `Bearer ${this.authToken || ''}` // Use empty string as fallback
     });
   }
+
+  /**
+ * Calls the /notify GET endpoint on the backend.
+ * This endpoint is expected to log a message on the server and return a confirmation.
+ * @returns Observable<NotifyResponse> containing the server's message.
+ */
+triggerServerNotification(): Observable<NotifyResponse> {
+  // Check if mock data should be used (consistent with your other methods)
+  if (this.useMockData) {
+    console.warn('MOCK: Triggering server notification (via triggerServerNotification).');
+    // Return a mock response that matches the NotifyResponse interface
+    return of({ message: 'Mock: Server notification triggered successfully.' } as NotifyResponse).pipe(delay(300));
+  }
+
+  const endpoint = `${this.apiUrl}/notify`; // apiUrl should be 'http://127.0.0.1:5000'
+  
+  console.log(`Service: Calling GET ${endpoint}`);
+
+  // Make the GET request, expecting a response that matches the NotifyResponse interface
+  return this.http.get<NotifyResponse>(endpoint).pipe(
+    tap((response: NotifyResponse) => {
+      console.log('Service: /notify API call successful. Response:', response);
+    }),
+    catchError((error: HttpErrorResponse) => {
+      console.error('Service: /notify API call error:', error);
+      
+      let displayMessage = 'Failed to trigger server notification.';
+      // Attempt to parse error.error if it exists and might contain a specific message
+      if (error.error) {
+        if (typeof error.error.message === 'string') { // If backend error is {message: "..."}
+            displayMessage = error.error.message;
+        } else if (typeof error.error.error === 'string') { // If backend error is {error: "..."}
+            displayMessage = error.error.error;
+        } else if (typeof error.error === 'string') { // If error.error itself is the message string
+            displayMessage = error.error;
+        }
+      } else if (error.message) { // General HttpErrorResponse message
+          displayMessage = error.message;
+      }
+      
+      // Using throwError to propagate a new Error object with a user-friendly message
+      return throwError(() => new Error(displayMessage)); 
+    })
+  );
+}
 
   /**
    * Predict sentiment from a single text input
@@ -220,7 +270,7 @@ checkCurrentUserSubscription(): Observable<CheckSubscriptionResponse> {
 
 // ... (rest of your service: predictText, uploadCsvForPrediction, etc.) ...
 
-  uploadCsvForPrediction(file: File, username: string, email: string): Observable<{ fileId: string; name: string; timestamp: string }> {
+  uploadCsvForPrediction(file: File, username: string, email: string): Observable<{ fileId: string; name: string; timestamp: Date }> {
     if (this.useMockData) {
       return mockUploadCsvFile(file);
     }
@@ -231,7 +281,7 @@ checkCurrentUserSubscription(): Observable<CheckSubscriptionResponse> {
     formData.append('username', username);  // Include username in the form data
     formData.append('email', email);       // Include email in the form data
 
-    return this.http.post<{ fileId: string; name: string; timestamp: string }>(endpoint, formData).pipe(
+    return this.http.post<{ fileId: string; name: string; timestamp: Date }>(endpoint, formData).pipe(
       tap(response => console.log('CSV upload response:', response))
     );
   }

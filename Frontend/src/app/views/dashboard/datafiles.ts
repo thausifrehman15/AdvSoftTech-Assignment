@@ -582,25 +582,27 @@ export function mockPredictText(text: string): Observable<any> {
  */
 export function mockUploadCsvFile(
   file: File
-): Observable<{ fileId: string; name: string; timestamp: string }> {
-  console.warn(`MOCK: Simulating CSV upload for ${file.name}`);
+): Observable<{ fileId: string; name: string; timestamp: Date }> {
+  // Generate a unique ID
   const fileId = 'file_' + Date.now();
-  const timestamp = new Date().toISOString(); // Convert to string format
+  const timestamp = new Date();
 
   // Add to pending files
   const pendingFile = {
     id: fileId,
     name: file.name,
-    timestamp: new Date(),
+    timestamp: timestamp,
   };
   pendingFiles.push(pendingFile);
 
   // Schedule automatic completion after 8 seconds
   setTimeout(() => {
+    // Find and remove the file from pending
     const pendingIndex = pendingFiles.findIndex((f) => f.id === fileId);
     if (pendingIndex !== -1) {
       pendingFiles.splice(pendingIndex, 1);
 
+      // Create completed file with sample data
       const newCompletedFile = {
         id: fileId,
         name: file.name,
@@ -609,40 +611,43 @@ export function mockUploadCsvFile(
         isDefault: false,
         data: [
           {
-            Text: 'We love your customer service approach!',
-            Prediction: 'Very Positive',
-            Confidence: 92,
-            categories: [
+            text: 'We love your customer service approach!',
+            final_prediction: 'Very Positive',
+            confidence: 92,
+            sentiment_scores: [
               { name: 'Very Negative', value: 1 },
               { name: 'Slightly Negative', value: 2 },
               { name: 'Neutral', value: 1 },
               { name: 'Slightly Positive', value: 4 },
               { name: 'Very Positive', value: 92 },
             ],
+            timestamp: new Date()
           },
           {
-            Text: 'The product is okay but delivery was slow.',
-            Prediction: 'Neutral',
-            Confidence: 68,
-            categories: [
+            text: 'The product is okay but delivery was slow.',
+            final_prediction: 'Neutral',
+            confidence: 68,
+            sentiment_scores: [
               { name: 'Very Negative', value: 5 },
               { name: 'Slightly Negative', value: 12 },
               { name: 'Neutral', value: 68 },
               { name: 'Slightly Positive', value: 10 },
               { name: 'Very Positive', value: 5 },
             ],
+            timestamp: new Date()
           },
           {
-            Text: 'I was disappointed with the quality.',
-            Prediction: 'Slightly Negative',
-            Confidence: 75,
-            categories: [
+            text: 'I was disappointed with the quality.',
+            final_prediction: 'Slightly Negative',
+            confidence: 75,
+            sentiment_scores: [
               { name: 'Very Negative', value: 15 },
               { name: 'Slightly Negative', value: 75 },
               { name: 'Neutral', value: 5 },
               { name: 'Slightly Positive', value: 3 },
               { name: 'Very Positive', value: 2 },
             ],
+            timestamp: new Date()
           },
         ],
         chartData: {
@@ -672,9 +677,11 @@ export function mockUploadCsvFile(
 
       // Add to completed files
       completedFiles.push(newCompletedFile);
+
+      // Add to CSV files data for visualization
       csvFilesData.push(newCompletedFile);
     }
-  }, 8000);
+  }, 8000); // Process after 8 seconds
 
   // Return the file details immediately
   return of({
