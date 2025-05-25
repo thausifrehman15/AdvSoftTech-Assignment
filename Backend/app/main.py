@@ -10,7 +10,7 @@ import requests  # ✅ For internal API call
 import json  # For handling JSON files
 from flask_swagger_ui import get_swaggerui_blueprint
 from flask_cors import CORS  # Import CORS
-from flask_jwt_extended import create_access_token, JWTManager
+from flask_jwt_extended import create_access_token, JWTManager, jwt_required, get_jwt_identity
 
 
 app = Flask(__name__, static_url_path='/static', static_folder='static')
@@ -129,6 +129,35 @@ def subscribe():
         json.dump(subscriptions, f, indent=4)
 
     return jsonify({"message": f"User {username} subscribed successfully!"}), 200
+
+@app.route("/user/data", methods=["GET"])
+@jwt_required() # Protect this route, only logged-in users can access their data
+def get_user_specific_data():
+    current_username = get_jwt_identity() # Get the username from the JWT token
+    
+    print(f"--- /user/data: Request for user: '{current_username}' ---")
+
+    # TODO: Implement logic to fetch actual data for this user
+    # This might involve:
+    # - Reading from users.json to get email or other profile info.
+
+    # For now, returning MOCK data structure similar to what frontend expects:
+    mock_data_for_user = {
+        "username": current_username,
+        "email": f"{current_username}@example.com", # Placeholder
+        "totalPredictions": 0, # Placeholder
+        "totalFiles": 0,       # Placeholder
+        "predictionHistory": [
+            # {"text": "Old text 1", "final_prediction": "Positive", "confidence": 90, "sentiment_scores": [{"name": "Positive", "value": 90}], "timestamp": "2024-05-20T10:00:00Z"}
+        ],
+        "pendingFiles": [
+            # {"id": "pending123", "name": "pending_data.csv", "timestamp": "2024-05-21T10:00:00Z"}
+        ],
+        "completedFiles": [
+            # {"id": "completed456", "name": "processed_data.csv", "status": "completed", "timestamp": "2024-05-19T10:00:00Z"}
+        ]
+    }
+    return jsonify(mock_data_for_user), 200
 
 @app.route("/check-subscription", methods=["GET"])
 def check_subscription():
