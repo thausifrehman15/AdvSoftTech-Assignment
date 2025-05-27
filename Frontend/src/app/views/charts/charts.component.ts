@@ -115,7 +115,7 @@ export class ChartsComponent {
         pointBorderColor: '#fff',
         pointHoverBackgroundColor: '#fff',
         pointHoverBorderColor: 'rgba(179,181,198,1)',
-        data: [65, 59, 90, 81, 56, 55, 40]
+        data: [this.randomData, this.randomData, this.randomData, this.randomData, this.randomData, this.randomData, this.randomData]
       },
       {
         label: '2021',
@@ -129,12 +129,6 @@ export class ChartsComponent {
       }
     ]
   };
-
-  // chartRadarOptions = {
-  //   aspectRatio: 1.5,
-  //   responsive: true,
-  //   maintainAspectRatio: false,
-  // };
 
   get randomData() {
     return Math.round(Math.random() * 100);

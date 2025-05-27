@@ -1,0 +1,98 @@
+{
+    "sourceFile": "Frontend/src/app/app.routes.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 20,
+            "patches": [
+                {
+                    "date": 1747826481082,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1747827362897,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -83,6 +83,9 @@\n     data: {\r\n       title: 'Register Page'\r\n     }\r\n   },\r\n-  { path: '**', redirectTo: 'dashboard' }\r\n+  { path: '**', redirectTo: 'dashboard' },\r\n+  ,\r\n+  { path: 'single', component: DashboardComponent },\r\n+  { path: 'bulk', component: DashboardComponent }\r\n ];\r\n"
+                },
+                {
+                    "date": 1747827374653,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -83,9 +83,9 @@\n     data: {\r\n       title: 'Register Page'\r\n     }\r\n   },\r\n-  { path: '**', redirectTo: 'dashboard' },\r\n-  ,\r\n+  { path: '**', redirectTo: 'dashboard' children: []\r\n+  },\r\n   { path: 'single', component: DashboardComponent },\r\n   { path: 'bulk', component: DashboardComponent }\r\n ];\r\n"
+                },
+                {
+                    "date": 1747827381453,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,6 +1,7 @@\n import { Routes } from '@angular/router';\r\n import { DefaultLayoutComponent } from './layout';\r\n+import { DashboardComponent } from './views/dashboard/dashboard.component';\r\n \r\n export const routes: Routes = [\r\n   {\r\n     path: '',\r\n@@ -83,9 +84,9 @@\n     data: {\r\n       title: 'Register Page'\r\n     }\r\n   },\r\n-  { path: '**', redirectTo: 'dashboard' children: []\r\n+  { path: '**', redirectTo: 'dashboard', children: []\r\n   },\r\n   { path: 'single', component: DashboardComponent },\r\n   { path: 'bulk', component: DashboardComponent }\r\n ];\r\n"
+                },
+                {
+                    "date": 1747827397994,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -84,9 +84,12 @@\n     data: {\r\n       title: 'Register Page'\r\n     }\r\n   },\r\n-  { path: '**', redirectTo: 'dashboard', children: []\r\n+  { path: '**', redirectTo: 'dashboard', children: [ {\r\n+        path: 'dashboard',\r\n+        loadChildren: () => import('./views/dashboard/routes').then(m => m.routes)\r\n+      },]\r\n   },\r\n   { path: 'single', component: DashboardComponent },\r\n   { path: 'bulk', component: DashboardComponent }\r\n ];\r\n"
+                },
+                {
+                    "date": 1747827416075,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -86,9 +86,9 @@\n     }\r\n   },\r\n   { path: '**', redirectTo: 'dashboard', children: [ {\r\n         path: 'dashboard',\r\n-        loadChildren: () => import('./views/dashboard/routes').then(m => m.routes)\r\n+        loadChildren: () => import('./views/dashboard/dashboard.routes').then(m => m.routes)\r\n       },]\r\n   },\r\n   { path: 'single', component: DashboardComponent },\r\n   { path: 'bulk', component: DashboardComponent }\r\n"
+                },
+                {
+                    "date": 1747827520560,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -84,12 +84,13 @@\n     data: {\r\n       title: 'Register Page'\r\n     }\r\n   },\r\n-  { path: '**', redirectTo: 'dashboard', children: [ {\r\n-        path: 'dashboard',\r\n-        loadChildren: () => import('./views/dashboard/dashboard.routes').then(m => m.routes)\r\n-      },]\r\n+  // Fix the wildcard route - can't have both redirectTo and children\r\n+  { \r\n+    path: '**', \r\n+    redirectTo: 'dashboard'\r\n   },\r\n-  { path: 'single', component: DashboardComponent },\r\n-  { path: 'bulk', component: DashboardComponent }\r\n-];\r\n+  // These standalone routes can be removed as they're covered by the dashboard lazy loaded routes\r\n+  // { path: 'single', component: DashboardComponent },\r\n+  // { path: 'bulk', component: DashboardComponent }\r\n+];\n\\ No newline at end of file\n"
+                },
+                {
+                    "date": 1747827629250,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -89,8 +89,5 @@\n   { \r\n     path: '**', \r\n     redirectTo: 'dashboard'\r\n   },\r\n-  // These standalone routes can be removed as they're covered by the dashboard lazy loaded routes\r\n-  // { path: 'single', component: DashboardComponent },\r\n-  // { path: 'bulk', component: DashboardComponent }\r\n ];\n\\ No newline at end of file\n"
+                },
+                {
+                    "date": 1747827874321,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -10,11 +10,8 @@\n   },\r\n   {\r\n     path: '',\r\n     component: DefaultLayoutComponent,\r\n-    data: {\r\n-      title: 'Home'\r\n-    },\r\n     children: [\r\n       {\r\n         path: 'dashboard',\r\n         loadChildren: () => import('./views/dashboard/dashboard.routes').then((m) => m.routes)\r\n"
+                },
+                {
+                    "date": 1747828175141,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -10,8 +10,11 @@\n   },\r\n   {\r\n     path: '',\r\n     component: DefaultLayoutComponent,\r\n+    data: {\r\n+      title: 'Home'\r\n+    },\r\n     children: [\r\n       {\r\n         path: 'dashboard',\r\n         loadChildren: () => import('./views/dashboard/dashboard.routes').then((m) => m.routes)\r\n@@ -81,10 +84,12 @@\n     data: {\r\n       title: 'Register Page'\r\n     }\r\n   },\r\n-  // Fix the wildcard route - can't have both redirectTo and children\r\n-  { \r\n-    path: '**', \r\n-    redirectTo: 'dashboard'\r\n+  { path: '**', redirectTo: 'dashboard', children: [ {\r\n+        path: 'dashboard',\r\n\\ No newline at end of file\n+        loadChildren: () => import('./views/dashboard/dashboard.routes').then(m => m.routes)\r\n+      },]\r\n   },\r\n-];\n+  { path: 'single', component: DashboardComponent },\r\n+  { path: 'bulk', component: DashboardComponent }\r\n+];\r\n"
+                },
+                {
+                    "date": 1747828201545,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,7 +1,6 @@\n import { Routes } from '@angular/router';\r\n import { DefaultLayoutComponent } from './layout';\r\n-import { DashboardComponent } from './views/dashboard/dashboard.component';\r\n \r\n export const routes: Routes = [\r\n   {\r\n     path: '',\r\n@@ -16,9 +15,9 @@\n     },\r\n     children: [\r\n       {\r\n         path: 'dashboard',\r\n-        loadChildren: () => import('./views/dashboard/dashboard.routes').then((m) => m.routes)\r\n+        loadChildren: () => import('./views/dashboard/routes').then((m) => m.routes)\r\n       },\r\n       {\r\n         path: 'theme',\r\n         loadChildren: () => import('./views/theme/routes').then((m) => m.routes)\r\n@@ -84,12 +83,6 @@\n     data: {\r\n       title: 'Register Page'\r\n     }\r\n   },\r\n-  { path: '**', redirectTo: 'dashboard', children: [ {\r\n-        path: 'dashboard',\r\n-        loadChildren: () => import('./views/dashboard/dashboard.routes').then(m => m.routes)\r\n-      },]\r\n-  },\r\n-  { path: 'single', component: DashboardComponent },\r\n-  { path: 'bulk', component: DashboardComponent }\r\n-];\n\\ No newline at end of file\n+  { path: '**', redirectTo: 'dashboard' }\r\n+];\r\n"
+                },
+                {
+                    "date": 1747828304238,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -15,9 +15,9 @@\n     },\r\n     children: [\r\n       {\r\n         path: 'dashboard',\r\n-        loadChildren: () => import('./views/dashboard/routes').then((m) => m.routes)\r\n+        loadChildren: () => import('./views/dashboard/dashboard.routes').then((m) => m.routes)\r\n       },\r\n       {\r\n         path: 'theme',\r\n         loadChildren: () => import('./views/theme/routes').then((m) => m.routes)\r\n@@ -84,5 +84,5 @@\n       title: 'Register Page'\r\n     }\r\n   },\r\n   { path: '**', redirectTo: 'dashboard' }\r\n-];\r\n+];\n\\ No newline at end of file\n"
+                },
+                {
+                    "date": 1747832403237,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -15,9 +15,9 @@\n     },\r\n     children: [\r\n       {\r\n         path: 'dashboard',\r\n-        loadChildren: () => import('./views/dashboard/dashboard.routes').then((m) => m.routes)\r\n+        loadChildren: () => import('./views/dashboard/routes').then((m) => m.routes)\r\n       },\r\n       {\r\n         path: 'theme',\r\n         loadChildren: () => import('./views/theme/routes').then((m) => m.routes)\r\n"
+                },
+                {
+                    "date": 1747832409179,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -15,9 +15,9 @@\n     },\r\n     children: [\r\n       {\r\n         path: 'dashboard',\r\n-        loadChildren: () => import('./views/dashboard/routes').then((m) => m.routes)\r\n+        loadChildren: () => import('./views/dashboard/dashboard.routes').then((m) => m.routes)\r\n       },\r\n       {\r\n         path: 'theme',\r\n         loadChildren: () => import('./views/theme/routes').then((m) => m.routes)\r\n"
+                },
+                {
+                    "date": 1747835102330,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -15,9 +15,9 @@\n     },\r\n     children: [\r\n       {\r\n         path: 'dashboard',\r\n-        loadChildren: () => import('./views/dashboard/dashboard.routes').then((m) => m.routes)\r\n+        loadChildren: () => import('./views/dashboard/routes').then((m) => m.routes)\r\n       },\r\n       {\r\n         path: 'theme',\r\n         loadChildren: () => import('./views/theme/routes').then((m) => m.routes)\r\n"
+                },
+                {
+                    "date": 1747835534163,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -15,9 +15,9 @@\n     },\r\n     children: [\r\n       {\r\n         path: 'dashboard',\r\n-        loadChildren: () => import('./views/dashboard/routes').then((m) => m.routes)\r\n+        loadChildren: () => import('./views/dashboard/dashboard.routes').then((m) => m.routes)\r\n       },\r\n       {\r\n         path: 'theme',\r\n         loadChildren: () => import('./views/theme/routes').then((m) => m.routes)\r\n"
+                },
+                {
+                    "date": 1747835553175,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -15,9 +15,9 @@\n     },\r\n     children: [\r\n       {\r\n         path: 'dashboard',\r\n-        loadChildren: () => import('./views/dashboard/dashboard.routes').then((m) => m.routes)\r\n+        loadChildren: () => import('./views/dashboard/routes').then((m) => m.routes)\r\n       },\r\n       {\r\n         path: 'theme',\r\n         loadChildren: () => import('./views/theme/routes').then((m) => m.routes)\r\n"
+                },
+                {
+                    "date": 1747839595136,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,6 +1,7 @@\n import { Routes } from '@angular/router';\r\n-import { DefaultLayoutComponent } from './layout';\r\n+import { DefaultLayoutComponent } from './layout/default-layout/default-layout.component';\r\n+import { authGuard } from './guards/auth.guard';\r\n \r\n export const routes: Routes = [\r\n   {\r\n     path: '',\r\n@@ -12,8 +13,10 @@\n     component: DefaultLayoutComponent,\r\n     data: {\r\n       title: 'Home'\r\n     },\r\n+    // Apply the auth guard to all routes that use DefaultLayoutComponent\r\n+    canActivate: [authGuard],\r\n     children: [\r\n       {\r\n         path: 'dashboard',\r\n         loadChildren: () => import('./views/dashboard/routes').then((m) => m.routes)\r\n"
+                },
+                {
+                    "date": 1747841678112,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -55,8 +55,15 @@\n       },\r\n       {\r\n         path: 'pages',\r\n         loadChildren: () => import('./views/pages/routes').then((m) => m.routes)\r\n+      },\r\n+      {\r\n+        path: 'subscription',\r\n+        loadComponent: () => import('./views/subscription/subscription.component').then(m => m.SubscriptionComponent),\r\n+        data: {\r\n+          title: 'Subscription Plans'\r\n+        }\r\n       }\r\n     ]\r\n   },\r\n   {\r\n"
+                },
+                {
+                    "date": 1747850535217,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -61,9 +61,10 @@\n         path: 'subscription',\r\n         loadComponent: () => import('./views/subscription/subscription.component').then(m => m.SubscriptionComponent),\r\n         data: {\r\n           title: 'Subscription Plans'\r\n-        }\r\n+        },\r\n+        canActivate: [authGuard] // Ensure the auth guard is applied here\r\n       }\r\n     ]\r\n   },\r\n   {\r\n"
+                },
+                {
+                    "date": 1747853290398,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -36,13 +36,13 @@\n       {\r\n         path: 'forms',\r\n         loadChildren: () => import('./views/forms/routes').then((m) => m.routes)\r\n       },\r\n+      // {\r\n+      //   path: 'icons',\r\n+      //   loadChildren: () => import('./views/icons/routes').then((m) => m.routes)\r\n+      // },\r\n       {\r\n-        path: 'icons',\r\n-        loadChildren: () => import('./views/icons/routes').then((m) => m.routes)\r\n-      },\r\n-      {\r\n         path: 'notifications',\r\n         loadChildren: () => import('./views/notifications/routes').then((m) => m.routes)\r\n       },\r\n       {\r\n"
+                }
+            ],
+            "date": 1747826481082,
+            "name": "Commit-0",
+            "content": "import { Routes } from '@angular/router';\r\nimport { DefaultLayoutComponent } from './layout';\r\n\r\nexport const routes: Routes = [\r\n  {\r\n    path: '',\r\n    redirectTo: 'dashboard',\r\n    pathMatch: 'full'\r\n  },\r\n  {\r\n    path: '',\r\n    component: DefaultLayoutComponent,\r\n    data: {\r\n      title: 'Home'\r\n    },\r\n    children: [\r\n      {\r\n        path: 'dashboard',\r\n        loadChildren: () => import('./views/dashboard/dashboard.routes').then((m) => m.routes)\r\n      },\r\n      {\r\n        path: 'theme',\r\n        loadChildren: () => import('./views/theme/routes').then((m) => m.routes)\r\n      },\r\n      {\r\n        path: 'base',\r\n        loadChildren: () => import('./views/base/routes').then((m) => m.routes)\r\n      },\r\n      {\r\n        path: 'buttons',\r\n        loadChildren: () => import('./views/buttons/routes').then((m) => m.routes)\r\n      },\r\n      {\r\n        path: 'forms',\r\n        loadChildren: () => import('./views/forms/routes').then((m) => m.routes)\r\n      },\r\n      {\r\n        path: 'icons',\r\n        loadChildren: () => import('./views/icons/routes').then((m) => m.routes)\r\n      },\r\n      {\r\n        path: 'notifications',\r\n        loadChildren: () => import('./views/notifications/routes').then((m) => m.routes)\r\n      },\r\n      {\r\n        path: 'widgets',\r\n        loadChildren: () => import('./views/widgets/routes').then((m) => m.routes)\r\n      },\r\n      {\r\n        path: 'charts',\r\n        loadChildren: () => import('./views/charts/routes').then((m) => m.routes)\r\n      },\r\n      {\r\n        path: 'pages',\r\n        loadChildren: () => import('./views/pages/routes').then((m) => m.routes)\r\n      }\r\n    ]\r\n  },\r\n  {\r\n    path: '404',\r\n    loadComponent: () => import('./views/pages/page404/page404.component').then(m => m.Page404Component),\r\n    data: {\r\n      title: 'Page 404'\r\n    }\r\n  },\r\n  {\r\n    path: '500',\r\n    loadComponent: () => import('./views/pages/page500/page500.component').then(m => m.Page500Component),\r\n    data: {\r\n      title: 'Page 500'\r\n    }\r\n  },\r\n  {\r\n    path: 'login',\r\n    loadComponent: () => import('./views/pages/login/login.component').then(m => m.LoginComponent),\r\n    data: {\r\n      title: 'Login Page'\r\n    }\r\n  },\r\n  {\r\n    path: 'register',\r\n    loadComponent: () => import('./views/pages/register/register.component').then(m => m.RegisterComponent),\r\n    data: {\r\n      title: 'Register Page'\r\n    }\r\n  },\r\n  { path: '**', redirectTo: 'dashboard' }\r\n];\r\n"
+        }
+    ]
+}

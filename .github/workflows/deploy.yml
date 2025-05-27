@@ -1,0 +1,75 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+      - thausif
+  # Allow manual triggering
+  workflow_dispatch:
+
+# Add permissions block
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: './Frontend/package-lock.json'
+
+      - name: Install dependencies
+        run: |
+          cd Frontend
+          npm ci --legacy-peer-deps
+
+      - name: Update base URL for GitHub Pages
+        run: |
+          cd Frontend
+          sed -i 's/<base href="\/">/<base href="\/AdvSoftTech-Assignment\/">/' src/index.html
+      
+      - name: Build Angular project
+        run: |
+          cd Frontend
+          npm run build -- --configuration production --base-href=/AdvSoftTech-Assignment/
+
+      - name: Debug directory structure
+        run: |
+          find Frontend/dist -type d | sort
+          find Frontend/dist -name "index.html" -type f
+
+      # Fix the variable capture so it's available for the deploy step
+      - name: Add routing files and set output
+        id: find-output
+        run: |
+          # Find the directory containing index.html
+          INDEX_DIR=$(find Frontend/dist -name "index.html" -type f | xargs dirname)
+          if [ -n "$INDEX_DIR" ]; then
+            echo "Found index.html in $INDEX_DIR"
+            cd "$INDEX_DIR"
+            
+            # Create necessary files for GitHub Pages
+            echo "/* /index.html 200" > _redirects
+            cp index.html 404.html
+            touch .nojekyll
+            
+            echo "output_dir=$INDEX_DIR" >> $GITHUB_OUTPUT
+          else
+            echo "Error: Could not find index.html in build output"
+            exit 1
+          fi
+
+      - name: Deploy to GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: ${{ steps.find-output.outputs.output_dir || 'Frontend/dist/coreui-free-angular-admin-template' }}
+          branch: gh-pages
+          clean: true

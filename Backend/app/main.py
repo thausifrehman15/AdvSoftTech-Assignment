@@ -12,9 +12,13 @@ from flask_swagger_ui import get_swaggerui_blueprint
 import jwt
 from datetime import datetime, timedelta
 from pathlib import Path
+from flask_cors import CORS  # Add CORS support
 
 # Initialize the app and load model
 app = Flask(__name__)
+
+# Add CORS to allow frontend requests
+CORS(app)
 
 # Add these lines after creating the Flask app
 SWAGGER_URL = '/api/docs'
@@ -91,37 +95,49 @@ def predict():
 
 @app.route("/signup", methods=["POST"])
 def signup():
-    data = request.get_json()
-    email = data.get("email")
-    username = data.get("username")
-    password = data.get("password")
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "success": False,
+                "message": "No data provided"
+            }), 400
 
-    if not email or not username or not password:
-        return jsonify({"success": False, "message": "Email, Username, and Password are required"}), 400
+        username = data.get("username")
+        password = data.get("password")
+        email = data.get("email")
 
-    success, message, user_data = register_user(username, password, email)
+        if not all([username, password, email]):
+            return jsonify({
+                "success": False,
+                "message": "Email, Username, and Password are required"
+            }), 400
 
-    if success:
-        response = {
-            "success": True,
-            "message": message,
-            "user": {
-                "id": user_data['id'],
-                "username": user_data['username'],
-                "email": user_data['email']
+        success, message, user_data = register_user(username, password, email)
+
+        if success:
+            response = {
+                "success": True,
+                "message": message,
+                "user": user_data
             }
-        }
-        status = 200
-    else:
-        response = {
+            status_code = 200
+        else:
+            response = {
+                "success": False,
+                "message": message
+            }
+            status_code = 409
+
+        return jsonify(response), status_code
+
+    except Exception as e:
+        return jsonify({
             "success": False,
-            "message": message
-        }
-        status = 409
+            "message": f"Server error: {str(e)}"
+        }), 500
 
-    return jsonify(response), status
-
-@app.route("/login", methods=["POST"]) 
+@app.route("/login", methods=["POST"])
 def login():
     try:
         data = request.get_json()
@@ -131,28 +147,34 @@ def login():
         username = data.get("username")
         password = data.get("password")
 
+        # Add debug logging
+        print(f"Login attempt for username: {username}")
+        print(f"Request data: {data}")
+
         if not username or not password:
-            return jsonify({"error": "Username and Password are Required"}), 400
+            return jsonify({"error": "Username and Password are required"}), 400
 
         success, message, user_data = login_user(username, password)
-        
+
         if success:
-            token = create_token(user_data['id'], user_data['username'], user_data['email'])
-            jsonify({
-                            "token": token,
-                            "user": {
-                                "id": user_data['id'],
-                                "username": user_data['username'],
-                                "email": user_data['email']
-                            },
-                            "message": message
-                        }), 200
+            # Generate token
+            token = create_token(user_data['id'], username, user_data['email'])
+            
+            return jsonify({
+                "token": token,
+                "user": {
+                    "id": user_data['id'],
+                    "username": username,
+                    "email": user_data['email']
+                },
+                "message": "Login successful"
+            }), 200
         else:
             return jsonify({"error": message}), 401
 
     except Exception as e:
-        app.logger.error(f"Login error: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
+        print(f"Login error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/subscribe", methods=["POST"])

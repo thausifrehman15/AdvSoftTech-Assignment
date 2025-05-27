@@ -86,7 +86,6 @@ export class DashboardComponent implements OnInit {
   private _cachedChartData: ChartData | null = null;
   private _lastPredictionTimeStamp: Date = new Date(); // Initialize with current date
   private selectedHistoryItem: any = null;
-  private statusCheckSubscription: Subscription | null = null;
   private fileStatusSubscriptions = new Map<string, Subscription>();
 
   public activeTab = 'single';
@@ -120,10 +119,13 @@ export class DashboardComponent implements OnInit {
     maintainAspectRatio: false,
   };
 
+
   // Add this inside your component class
   public pendingFiles: { id: string; name: string; timestamp: Date }[] = [];
   public myFiles: CsvFile[] = []; // This will store user's completed files
   public singlePredictionHistory: PredictionResponse[] = [];
+  public isLoadingFile: boolean = false;
+  public disableOtherMyFiles: boolean = false;
 
   constructor(
   private http: HttpClient,
@@ -154,29 +156,37 @@ export class DashboardComponent implements OnInit {
     fileName: new FormControl(''),
   });
 
-  public csvFiles: CsvFile[] = [  ];
+  public csvFiles: CsvFile[] = []
 
   chartRadarData: ChartData = {
     labels: [
-      'Eating',
-      'Drinking',
-      'Sleeping',
-      'Designing',
-      'Coding',
-      'Cycling',
-      'Running',
+      'Very Positive',
+      'Slightly Positive',
+      'Neutral',
+      'Slightly Negative',
+      'Very Negative'
     ],
     datasets: [
       {
-        label: '2020',
-        backgroundColor: 'rgba(179,181,198,0.2)',
-        borderColor: 'rgba(179,181,198,1)',
-        pointBackgroundColor: 'rgba(179,181,198,1)',
+        label: 'Sentiment Distribution',
+        backgroundColor: 'rgba(51, 153, 255, 0.2)',
+        borderColor: 'rgba(51, 153, 255, 1)',
+        pointBackgroundColor: 'rgba(51, 153, 255, 1)',
         pointBorderColor: '#fff',
         pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: 'rgba(179,181,198,1)',
-        data: [65, 59, 90, 81, 56, 55, 40],
+        pointHoverBorderColor: 'rgba(51, 153, 255, 1)',
+        data: [92, 65, 30, 15, 8],
       },
+      {
+        label: 'Threshold',
+        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+        borderColor: 'rgba(255, 99, 132, 1)',
+        pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+        pointBorderColor: '#fff',
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: 'rgba(255, 99, 132, 1)',
+        data: [50, 50, 50, 50, 50],
+      }
     ],
   };
 
@@ -298,21 +308,21 @@ export class DashboardComponent implements OnInit {
     this.isProcessingSinglePrediction = true;
 
     this.predictionService.predictText(textValue).subscribe({
-      next: (result) => {
+      next: (response) => {
         try {
           // Handle both array and object formats for sentiment_scores
           let categories: {name: string, value: number}[] = [];
           
-          if (Array.isArray(result.sentiment_scores)) {
+          if (Array.isArray(response.sentiment_scores)) {
             // If sentiment_scores is already an array
-            categories = result.sentiment_scores.map(score => ({
+            categories = response.sentiment_scores.map(score => ({
               name: score.name === 'neutral' ? 'Neutral' : score.name,
               value: typeof score.value === 'number' ? score.value : 
                     Number((Number(score.value) * 100).toFixed(2))
             }));
-          } else if (result.sentiment_scores && typeof result.sentiment_scores === 'object') {
+          } else if (response.sentiment_scores && typeof response.sentiment_scores === 'object') {
             // If sentiment_scores is an object
-            categories = Object.entries(result.sentiment_scores).map(
+            categories = Object.entries(response.sentiment_scores).map(
               ([name, value]) => ({
                 name: name === 'neutral' ? 'Neutral' : name,
                 value: Number((Number(value) * 100).toFixed(2)),
@@ -322,10 +332,10 @@ export class DashboardComponent implements OnInit {
 
           // Calculate confidence (highest score)
           let confidence = 0;
-          if (result.final_prediction) {
+          if (response.final_prediction) {
             // Find the category matching the final prediction
             const matchingCategory = categories.find(
-              c => c.name.toLowerCase() === result.final_prediction?.toLowerCase()
+              c => c.name.toLowerCase() === response.final_prediction?.toLowerCase()
             );
             
             if (matchingCategory) {
@@ -338,7 +348,7 @@ export class DashboardComponent implements OnInit {
 
           const prediction = {
             text: textValue,
-            final_prediction: result.final_prediction,
+            final_prediction: response.final_prediction,
             confidence: confidence,
             sentiment_scores: categories,
             timestamp: new Date(),
@@ -381,6 +391,7 @@ export class DashboardComponent implements OnInit {
       }
     });
   }
+  
   /**
    * Removes a CSV file from the visualization
    * @param fileId The ID of the file to remove
@@ -787,7 +798,6 @@ export class DashboardComponent implements OnInit {
     });
   }
 
-  // Also fix the generateChartDataFromApiResponse method to handle potential errors
   generateChartDataFromApiResponse(fileDetails: any): ChartData {
     if (!fileDetails || !fileDetails.data) {
       // Return empty chart data when no details are available
@@ -854,7 +864,6 @@ export class DashboardComponent implements OnInit {
     this.router.navigate(['/dashboard', tab]);
   }
 
-  // Add this method
   navigateToSubscription(): void {
     console.log('Navigating to subscription page...');
     

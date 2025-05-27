@@ -8,61 +8,55 @@ import {
 } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
+import { Router } from '@angular/router';
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
-  intercept(
-    request: HttpRequest<unknown>,
-    next: HttpHandler
-  ): Observable<HttpEvent<unknown>> {
-    // Get the auth token and username from localStorage
+  
+  constructor(private router: Router) {}
+
+  intercept(request: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
+    // Get auth token and username from localStorage
     const authToken = localStorage.getItem('authToken');
     const username = localStorage.getItem('username');
 
-    // Clone the request and add auth headers
-    let modifiedRequest = request;
-
-    if (authToken) {
-      modifiedRequest = request.clone({
-        setHeaders: {
-          Authorization: `Bearer ${authToken}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      // Add username to URL for specific endpoints that need it
-      // List of endpoints that should include username
-      const userSpecificEndpoints = [
-        '/user/data',
-        '/predict',
-        '/files',
-        '/upload'
-      ];
-
-      if (username && userSpecificEndpoints.some(endpoint => request.url.includes(endpoint))) {
-        // Get the current URL
-        const url = new URL(request.url);
-        
-        // Add username as query parameter if it's not already present
-        if (!url.searchParams.has('username')) {
-          url.searchParams.append('username', username);
-        }
-
-        // Create new request with modified URL
-        modifiedRequest = modifiedRequest.clone({
-          url: url.toString()
-        });
-      }
+    // Skip adding auth headers for login/register requests
+    if (request.url.includes('/auth/login') || request.url.includes('/auth/register')) {
+      return next.handle(request);
     }
 
-    // Handle the request and catch any errors
+    // Clone the request and add auth headers
+    let modifiedRequest = request;
+    
+    // Add headers based on what we have
+    if (authToken || username) {
+      const headers: {[key: string]: string} = {};
+      
+      if (authToken) {
+        headers['authToken'] = `${authToken}`;
+      }
+      
+      if (username) {
+        headers['username'] = username;
+      }
+      
+      // For FormData requests, we don't want to set Content-Type
+      if (!(request.body instanceof FormData)) {
+        headers['Content-Type'] = 'application/json';
+      }
+      
+      modifiedRequest = request.clone({
+        setHeaders: headers
+      });
+    }
+
     return next.handle(modifiedRequest).pipe(
       catchError((error: HttpErrorResponse) => {
+        // Handle 401 Unauthorized responses
         if (error.status === 401) {
-          // Handle unauthorized error (e.g., clear local storage and redirect to login)
           localStorage.removeItem('authToken');
           localStorage.removeItem('username');
-          window.location.href = '/login';
+          this.router.navigate(['/login']);
         }
         return throwError(() => error);
       })
