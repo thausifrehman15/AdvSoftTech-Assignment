@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 21,
+            "activePatchIndex": 24,
             "patches": [
                 {
                     "date": 1747912697537,
@@ -92,6 +92,18 @@
                 {
                     "date": 1747942978919,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -77,9 +77,9 @@\n     const endpoint = `${this.apiUrl}/predict`;\r\n     const payload: PredictionRequest = { text };\r\n     return this.http.post<PredictionResponse>(endpoint, payload);\r\n   }\r\n-\r\n+w\r\n   // File upload\r\n   uploadCsvForPrediction(file: File): Observable<FileUploadResponse> {    \r\n     const endpoint = `${this.apiUrl}/upload`;\r\n     const formData = new FormData();\r\n@@ -110,16 +110,8 @@\n     const endpoint = `${this.apiUrl}/user/data`;\r\n     return this.http.get<UserDataResponse>(endpoint);\r\n   }\r\n \r\n-  // Private helper methods\r\n-  private getAuthHeaders(): HttpHeaders {\r\n-    return new HttpHeaders({\r\n-      'Content-Type': 'application/json',\r\n-      'Authorization': `Bearer ${this.authToken || ''}` // Use empty string as fallback\r\n-    });\r\n-  }\r\n-\r\n   private handleError(error: any) {\r\n     let errorMessage = '';\r\n     if (error.error instanceof ErrorEvent) {\r\n       // Client-side error\r\n"
+                },
+                {
+                    "date": 1748256808497,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -3,22 +3,8 @@\n import { Observable, of, throwError } from 'rxjs';\r\n import { catchError, delay, map, tap } from 'rxjs/operators';\r\n import { environment, environmentProd } from '../../environment/environment';\r\n \r\n-// Import interfaces\r\n-import {\r\n-  LoginRequest,\r\n-  LoginResponse,\r\n-  RegisterRequest,\r\n-  RegisterResponse,\r\n-  PredictionRequest,\r\n-  PredictionResponse,\r\n-  FileUploadResponse,\r\n-  FileListResponse,\r\n-  FileDetailResponse,\r\n-  FileStatusResponse,\r\n-  UserDataResponse\r\n-} from '../../interfaces';\r\n \r\n @Injectable({\r\n   providedIn: 'root'\r\n })\r\n@@ -77,9 +63,9 @@\n     const endpoint = `${this.apiUrl}/predict`;\r\n     const payload: PredictionRequest = { text };\r\n     return this.http.post<PredictionResponse>(endpoint, payload);\r\n   }\r\n-w\r\n+\r\n   // File upload\r\n   uploadCsvForPrediction(file: File): Observable<FileUploadResponse> {    \r\n     const endpoint = `${this.apiUrl}/upload`;\r\n     const formData = new FormData();\r\n"
+                },
+                {
+                    "date": 1748256814622,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -2,8 +2,9 @@\n import { HttpClient, HttpHeaders } from '@angular/common/http';\r\n import { Observable, of, throwError } from 'rxjs';\r\n import { catchError, delay, map, tap } from 'rxjs/operators';\r\n import { environment, environmentProd } from '../../environment/environment';\r\n+import { LoginResponse } from '../../interfaces/auth/login.interface';\r\n \r\n \r\n @Injectable({\r\n   providedIn: 'root'\r\n"
+                },
+                {
+                    "date": 1748256822906,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -2,9 +2,9 @@\n import { HttpClient, HttpHeaders } from '@angular/common/http';\r\n import { Observable, of, throwError } from 'rxjs';\r\n import { catchError, delay, map, tap } from 'rxjs/operators';\r\n import { environment, environmentProd } from '../../environment/environment';\r\n-import { LoginResponse } from '../../interfaces/auth/login.interface';\r\n+import { LoginResponse, LoginRequest, RegisterResponse, RegisterRequest, PredictionResponse, PredictionRequest, FileUploadResponse, FileListResponse, FileDetailResponse, FileStatusResponse, UserDataResponse } from './prediction.interface';\r\n \r\n \r\n @Injectable({\r\n   providedIn: 'root'\r\n"
                 }
             ],
             "date": 1747912697537,

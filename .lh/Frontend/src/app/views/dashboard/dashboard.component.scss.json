@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 17,
+            "activePatchIndex": 19,
             "patches": [
                 {
                     "date": 1747831935112,
@@ -76,6 +76,14 @@
                 {
                     "date": 1747852594006,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -28,41 +28,9 @@\n   width: 100%;\r\n   min-height: 300px;\r\n }\r\n \r\n-/* Make sure data tables use full width */\r\n-table {\r\n-  width: 100%;\r\n-}\r\n-\r\n-/* Add some breathing room to table cells */\r\n-td, th {\r\n-  padding: 8px;\r\n-}\r\n-\r\n-// Add to dashboard.component.scss\r\n-.table-responsive {\r\n-  position: relative;\r\n-  \r\n-  table {\r\n-    margin-bottom: 0;\r\n-  }\r\n-  \r\n-  thead th {\r\n-    position: sticky;\r\n-    top: 0;\r\n-    background-color: black;\r\n-    z-index: 1;\r\n-    // Add a subtle shadow to visually separate the header\r\n-    box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1);\r\n-  }\r\n-}\r\n-\r\n-// Fix Bootstrap hover styles for sticky headers\r\n-.table-hover tbody tr:hover {\r\n-  background-color: rgba(0, 0, 255, 0.05);\r\n-}\r\n-\r\n+// \r\n .categories-summary {\r\n   white-space: nowrap;\r\n   overflow: hidden;\r\n   text-overflow: ellipsis;\r\n"
+                },
+                {
+                    "date": 1748349806637,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -28,9 +28,9 @@\n   width: 100%;\r\n   min-height: 300px;\r\n }\r\n \r\n-// \r\n+\r\n .categories-summary {\r\n   white-space: nowrap;\r\n   overflow: hidden;\r\n   text-overflow: ellipsis;\r\n@@ -116,5 +116,26 @@\n   border-radius: 20px;\r\n   font-weight: bold;\r\n   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);\r\n   z-index: 11;\r\n+}\r\n+\r\n+.disabled {\r\n+  opacity: 0.5;\r\n+  pointer-events: none;\r\n+  cursor: not-allowed !important;\r\n+}\r\n+\r\n+.loading-overlay {\r\n+  position: relative;\r\n+}\r\n+\r\n+.loading-overlay::after {\r\n+  content: '';\r\n+  position: absolute;\r\n+  top: 0;\r\n+  left: 0;\r\n+  right: 0;\r\n+  bottom: 0;\r\n+  background: rgba(255, 255, 255, 0.7);\r\n+  z-index: 10;\r\n }\n\\ No newline at end of file\n"
+                },
+                {
+                    "date": 1748350166207,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -117,25 +117,35 @@\n   font-weight: bold;\r\n   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);\r\n   z-index: 11;\r\n }\r\n-\r\n .disabled {\r\n-  opacity: 0.5;\r\n-  pointer-events: none;\r\n+  opacity: 0.7 !important;\r\n+  pointer-events: none !important;\r\n   cursor: not-allowed !important;\r\n }\r\n \r\n-.loading-overlay {\r\n+// Prevent chart flicker during transitions\r\n+c-chart {\r\n+  transition: opacity 0.2s ease-in-out;\r\n+}\r\n+\r\n+// Ensure proper chart container spacing\r\n+[id^=\"chart-container-\"] {\r\n+  min-height: 400px;\r\n   position: relative;\r\n }\r\n \r\n\\ No newline at end of file\n-.loading-overlay::after {\r\n+// Loading state styles\r\n+.loading-state {\r\n+  position: relative;\r\n+}\r\n+\r\n+.loading-state::after {\r\n   content: '';\r\n   position: absolute;\r\n   top: 0;\r\n   left: 0;\r\n   right: 0;\r\n   bottom: 0;\r\n-  background: rgba(255, 255, 255, 0.7);\r\n+  background: rgba(255, 255, 255, 0.8);\r\n   z-index: 10;\r\n-}\n"
                 }
             ],
             "date": 1747831935112,
