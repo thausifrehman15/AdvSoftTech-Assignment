@@ -8,7 +8,10 @@
             <c-nav-item>
               <a cNavLink 
                  [active]="activeTab === 'single'" 
-                 (click)="switchTab('single')"
+                 [class.disabled]="isLoadingFile"
+                 [style.opacity]="isLoadingFile ? '0.7' : '1'"
+                 [style.pointer-events]="isLoadingFile ? 'none' : 'auto'"
+                 (click)="!isLoadingFile ? switchTab('single') : null"
                  style="cursor: pointer;">
                 Single Line Prediction
               </a>
@@ -16,7 +19,10 @@
             <c-nav-item>
               <a cNavLink 
                  [active]="activeTab === 'bulk'" 
-                 (click)="switchTab('bulk')"
+                 [class.disabled]="isLoadingFile"
+                 [style.opacity]="isLoadingFile ? '0.7' : '1'"
+                 [style.pointer-events]="isLoadingFile ? 'none' : 'auto'"
+                 (click)="!isLoadingFile ? switchTab('bulk') : null"
                  style="cursor: pointer;">
                 Bulk Prediction
                 <span *ngIf="!hasBulkAccess" class="badge bg-secondary ms-1">PRO</span>
@@ -24,6 +30,7 @@
             </c-nav-item>
           </c-nav>
         </c-card-header>
+
         <c-card-body>
           <!-- Single Line Prediction Content -->
           <div *ngIf="activeTab === 'single'">
@@ -197,7 +204,10 @@
                           <a [active]="activeCsvFile === csvFile.id" 
                              cNavLink 
                              class="d-flex align-items-center"
-                             (click)="selectCsvFile(csvFile.id)">
+                             [class.disabled]="isLoadingFile"
+                             [style.opacity]="isLoadingFile ? '0.7' : '1'"
+                             [style.pointer-events]="isLoadingFile ? 'none' : 'auto'"
+                             (click)="!isLoadingFile ? selectCsvFile(csvFile.id) : null">
                             {{ csvFile.name }}
                             <!-- Delete button -->
                             <button 
@@ -208,7 +218,8 @@
                               variant="ghost"
                               class="ms-2 p-0 px-1"
                               style="line-height: 1;"
-                              (click)="deleteCsvFile(csvFile.id, $event)">
+                              [disabled]="isLoadingFile"
+                              (click)="!isLoadingFile ? deleteCsvFile(csvFile.id, $event) : null">
                               &times;
                             </button>
                           </a>
@@ -222,25 +233,27 @@
                           <strong>{{ currentCsvFile?.name }} - Chart</strong>
                         </c-card-header>
                         <c-card-body>
-                          <div *ngIf="isLoadingFile" class="text-center py-5">
+                          <div *ngIf="isLoadingFile || !isChartReady" class="text-center py-5">
                             <div class="spinner-border text-primary" role="status">
                               <span class="visually-hidden">Loading chart...</span>
                             </div>
-                            <p class="mt-2">Loading chart data...</p>
+                            <p class="mt-2">{{ isLoadingFile ? 'Loading file data and chart...' : 'Initializing chart...' }}</p>
                           </div>
                           
-                          <!-- Only show chart when not loading and data exists -->
-                          <ng-container *ngIf="!isLoadingFile && currentCsvFile?.chartData">
-                            <!-- Use key binding to force chart recreation -->
-                            <div [id]="'chart-container-' + activeCsvFile">
-                              <c-chart 
-                                #radarChart
-                                type="radar" 
-                                [data]="currentCsvFile.chartData"
-                                [options]="options" />
-                            </div>
-                          </ng-container>                          
-                          <div *ngIf="!isLoadingFile && (!currentCsvFile || !currentCsvFile.chartData)" class="text-center py-5">
+                          <!-- Only show chart when not loading, chart is ready, and data exists -->
+                          <ng-container *ngIf="!isLoadingFile && isChartReady && currentCsvFile?.chartData">
+                            <!-- Use ng-container with ngIf and unique ID to force recreation -->
+                            <ng-container *ngIf="chartKey">
+                              <div [id]="'chart-container-' + chartKey">
+                                <c-chart 
+                                  #radarChart
+                                  type="radar" 
+                                  [data]="currentCsvFile.chartData"
+                                  [options]="options" />
+                              </div>
+                            </ng-container>
+                          </ng-container>
+                          <div *ngIf="!isLoadingFile && isChartReady && (!currentCsvFile || !currentCsvFile.chartData)" class="text-center py-5">
                             <p class="text-muted">No chart data available</p>
                           </div>
                         </c-card-body>
@@ -422,69 +435,88 @@
                       </div>
                     </c-card-body>
                   </c-card>
-                                  <c-card>
-                  <c-card-header>
-                    <strong>My Files</strong>
-                  </c-card-header>
-                  <c-card-body>
-                    <!-- Add search input -->
-                    <div class="mb-3">
-                      <div class="input-group">
-                        <!-- <svg cIcon name="cil-search"></svg> -->
-                        <input 
-                          cFormControl 
-                          type="text" 
-                          placeholder="Search files..." 
-                          [(ngModel)]="fileSearchQuery"
-                          [ngModelOptions]="{standalone: true}"
-                          (input)="filterFiles()">
-                        <button 
-                          *ngIf="fileSearchQuery" 
-                          cButton 
-                          color="secondary" 
-                          variant="outline" 
-                          type="button"
-                          (click)="clearFileSearch()">
-                          &times;
-                        </button>
+                  <c-card>
+                    <c-card-header>
+                      <strong>My Files</strong>
+                    </c-card-header>
+                    <c-card-body>
+                      <!-- Add search input -->
+                      <div class="mb-3">
+                        <div class="input-group">
+                          <!-- <svg cIcon name="cil-search"></svg> -->
+                          <input 
+                            cFormControl 
+                            type="text" 
+                            placeholder="Search files..." 
+                            [(ngModel)]="fileSearchQuery"
+                            [ngModelOptions]="{standalone: true}"
+                            [disabled]="isLoadingFile"
+                            (input)="filterFiles()">
+                          <button 
+                            *ngIf="fileSearchQuery" 
+                            cButton 
+                            color="secondary" 
+                            variant="outline" 
+                            type="button"
+                            [disabled]="isLoadingFile"
+                            (click)="clearFileSearch()">
+                            &times;
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                    
-                    <div *ngIf="filteredFiles.length === 0" class="text-center py-3">
-                      <p class="text-muted mb-0">
-                        {{ myFiles.length === 0 ? 'No files available' : 'No matching files' }}
-                      </p>
-                    </div>
-                    
-                    <div style="max-height: 240px; overflow-y: auto;" *ngIf="filteredFiles.length > 0">
-                      <ul cListGroup>
-                        <li cListGroupItem 
-                          *ngFor="let file of filteredFiles"
-                          [active]="activeCsvFile === file.id"
-                          style="cursor: pointer;"
-                          (click)="loadFileToVisualization(file.id)">
-                          <div class="d-flex align-items-center">
-                            <span class="text-truncate">{{ file.name }}</span>
-                            <small class="text-muted ms-auto">
-                              {{ file.timestamp | date:'short' }}
-                            </small>
-                          </div>
-                        </li>
-                      </ul>
-                    </div>
-                    
-                    <div *ngIf="!fileSearchQuery && myFiles.length > 5" class="text-end mt-2">
-                      <small class="text-muted">
-                        Showing {{ filteredFiles.length }} of {{ myFiles.length }} files
-                      </small>
-                    </div>
-                    <div *ngIf="fileSearchQuery && filteredFiles.length > 0" class="text-end mt-2">
-                      <small class="text-muted">
-                        Found {{ filteredFiles.length }} {{ filteredFiles.length === 1 ? 'match' : 'matches' }}
-                      </small>
-                    </div>
-                  </c-card-body>
-                </c-card>
+                      
+                      <!-- Loading indicator -->
+                      <div *ngIf="isLoadingFile" class="text-center py-3">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                          <span class="visually-hidden">Loading file...</span>
+                        </div>
+                        <p class="mt-2 text-muted small">Loading file data and chart...</p>
+                      </div>
+                      
+                      <div *ngIf="filteredFiles.length === 0 && !isLoadingFile" class="text-center py-3">
+                        <p class="text-muted mb-0">
+                          {{ myFiles.length === 0 ? 'No files available' : 'No matching files' }}
+                        </p>
+                      </div>
+                      
+                      <div style="max-height: 240px; overflow-y: auto;" *ngIf="filteredFiles.length > 0">
+                        <ul cListGroup>
+                          <li cListGroupItem 
+                            *ngFor="let file of filteredFiles"
+                            [active]="activeCsvFile === file.id"
+                            [class.disabled]="disableOtherMyFiles && activeCsvFile !== file.id"
+                            style="cursor: pointer;"
+                            [style.opacity]="disableOtherMyFiles && activeCsvFile !== file.id ? '0.5' : '1'"
+                            [style.pointer-events]="disableOtherMyFiles && activeCsvFile !== file.id ? 'none' : 'auto'"
+                            (click)="!disableOtherMyFiles || activeCsvFile === file.id ? loadFileToVisualization(file.id) : null">
+                            <div class="d-flex align-items-center">
+                              <span class="text-truncate">{{ file.name }}</span>
+                              <small class="text-muted ms-auto">
+                                {{ file.timestamp | date:'short' }}
+                              </small>
+                              <!-- Loading indicator for active file -->
+                              <div *ngIf="isLoadingFile && activeCsvFile === file.id" 
+                                  class="spinner-border spinner-border-sm text-primary ms-2" 
+                                  role="status">
+                                <span class="visually-hidden">Loading...</span>
+                              </div>
+                            </div>
+                          </li>
+                        </ul>
+                      </div>
+                      
+                      <div *ngIf="!fileSearchQuery && myFiles.length > 5 && !isLoadingFile" class="text-end mt-2">
+                        <small class="text-muted">
+                          Showing {{ filteredFiles.length }} of {{ myFiles.length }} files
+                        </small>
+                      </div>
+                      <div *ngIf="fileSearchQuery && filteredFiles.length > 0 && !isLoadingFile" class="text-end mt-2">
+                        <small class="text-muted">
+                          Found {{ filteredFiles.length }} {{ filteredFiles.length === 1 ? 'match' : 'matches' }}
+                        </small>
+                      </div>
+                    </c-card-body>
+                  </c-card>
                 </c-col>
               </c-row>
             </div>
