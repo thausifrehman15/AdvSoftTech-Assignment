@@ -126,6 +126,9 @@ export class DashboardComponent implements OnInit {
   public singlePredictionHistory: PredictionResponse[] = [];
   public isLoadingFile: boolean = false;
   public disableOtherMyFiles: boolean = false;
+  public chartInitializationDelay = 1500; // Increased delay for chart initialization
+  public isChartReady: boolean = false;
+  public chartKey: string = ''; // Add this to force chart recreation
 
   constructor(
   private http: HttpClient,
@@ -135,6 +138,13 @@ export class DashboardComponent implements OnInit {
   private route: ActivatedRoute,
   private router: Router
   ) {}
+
+  private resetLoadingState(): void {
+    this.isLoadingFile = false;
+    this.disableOtherMyFiles = false;
+    this.isChartReady = true;
+    this.cdr.detectChanges();
+  }
 
   get totalPages(): number {
     return this.currentCsvFile
@@ -291,8 +301,35 @@ export class DashboardComponent implements OnInit {
   }
 
   selectCsvFile(fileId: string): void {
+    // Prevent switching if loading
+    if (this.isLoadingFile) {
+      return;
+    }
+
+    // Additional check to prevent rapid switching
+    if (!this.isChartReady && this.activeCsvFile) {
+      return;
+    }
+
+    // Set loading state even for tab switching to existing files
+    this.isLoadingFile = true;
+    this.disableOtherMyFiles = true;
+    this.isChartReady = false;
+
     this.activeCsvFile = fileId;
     this.currentPage = 0;
+    this.chartKey = `${fileId}-${Date.now()}`; // Force chart recreation
+    
+    // Force change detection
+    this.cdr.detectChanges();
+
+    // Short delay to ensure chart properly switches
+    setTimeout(() => {
+      this.isLoadingFile = false;
+      this.disableOtherMyFiles = false;
+      this.isChartReady = true;
+      this.cdr.detectChanges();
+    }, 600);
   }
 
   get currentCsvFile(): CsvFile | undefined {
@@ -474,39 +511,86 @@ export class DashboardComponent implements OnInit {
   }
 
   loadFileToVisualization(fileId: string): void {
+    // Prevent loading if another file is currently loading
+    if (this.isLoadingFile) {
+      return;
+    }
+
     // Check if file already exists in visualization tabs
     const existingFileIndex = this.csvFiles.findIndex(
       (file) => file.id === fileId
     );
 
     if (existingFileIndex !== -1) {
-      // File already exists in tabs, just activate it
+      // File already exists in tabs, just activate it with proper loading state
+      this.isLoadingFile = true;
+      this.disableOtherMyFiles = true;
+      this.isChartReady = false;
+      
+      // Set the active file and update chart key
       this.activeCsvFile = fileId;
+      this.currentPage = 0;
+      this.chartKey = `${fileId}-${Date.now()}`; // Force chart recreation
+      
+      // Wait for chart to properly initialize even for existing files
+      setTimeout(() => {
+        this.isLoadingFile = false;
+        this.disableOtherMyFiles = false;
+        this.isChartReady = true;
+        this.cdr.detectChanges();
+      }, 800); // Shorter delay for existing files
+      
       return;
     }
+
+    // Start loading state for new files
+    this.isLoadingFile = true;
+    this.disableOtherMyFiles = true;
+    this.isChartReady = false;
 
     // Otherwise, fetch file details from API
     this.predictionService.getFileDetails(fileId).subscribe({
       next: (fileDetails) => {
-        // Create chart data from the file details
-        const chartData = this.generateChartDataFromApiResponse(fileDetails);
+        try {
+          // Create chart data from the file details
+          const chartData = this.generateChartDataFromApiResponse(fileDetails);
 
-        // Add to visualization tabs
-        const newFile: CsvFile = {
-          id: fileId,
-          name: fileDetails.name,
-          status: 'completed',
-          timestamp: new Date(fileDetails.timestamp),
-          isDefault: false,
-          data: fileDetails.data || [],
-          chartData: chartData,
-        };
+          // Add to visualization tabs
+          const newFile: CsvFile = {
+            id: fileId,
+            name: fileDetails.name,
+            status: 'completed',
+            timestamp: new Date(fileDetails.timestamp),
+            isDefault: false,
+            data: fileDetails.data || [],
+            chartData: chartData,
+          };
 
-        this.csvFiles.push(newFile);
-        this.activeCsvFile = fileId;
+          this.csvFiles.push(newFile);
+          this.activeCsvFile = fileId;
+          this.currentPage = 0;
+          this.chartKey = `${fileId}-${Date.now()}`; // Force chart recreation
+
+          // Force change detection first
+          this.cdr.detectChanges();
+
+          // Wait longer for chart to fully initialize for new files
+          setTimeout(() => {
+            this.isLoadingFile = false;
+            this.disableOtherMyFiles = false;
+            this.isChartReady = true;
+            this.cdr.detectChanges();
+          }, this.chartInitializationDelay);
+
+        } catch (error) {
+          console.error('Error processing file details:', error);
+          this.resetLoadingState();
+          alert('Failed to process file details. Please try again.');
+        }
       },
       error: (error) => {
         console.error('Error loading file details:', error);
+        this.resetLoadingState();
         alert('Failed to load file details. Please try again.');
       },
     });
@@ -887,6 +971,14 @@ export class DashboardComponent implements OnInit {
   }
 
   switchTab(tab: string): void {
+    // Prevent tab switching if currently loading a file
+    if (this.isLoadingFile) {
+      return;
+    }
+
+    // Reset chart state when switching tabs
+    this.isChartReady = false;
+    
     // Always allow switching to the tab, even without access
     this.activeTab = tab;
     
@@ -895,7 +987,14 @@ export class DashboardComponent implements OnInit {
       skipLocationChange: false,
       replaceUrl: false
     });
+
+    // Reset chart ready state after navigation
+    setTimeout(() => {
+      this.isChartReady = true;
+      this.cdr.detectChanges();
+    }, 300);
   }
+
 
   downloadFile(fileId: string): void {
     this.predictionService.downloadFile(fileId).subscribe({
