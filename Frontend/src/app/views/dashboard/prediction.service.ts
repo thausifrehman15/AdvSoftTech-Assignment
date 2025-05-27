@@ -13,6 +13,10 @@ export class PredictionService {
   private apiUrl = environment.apiUrl || 'https://api.yourdomain.com';
   private useMockData = true;
   private authToken: string | null = null;
+  public validUsers = [
+    { username: 'testuser', password: 'password123', email: 'test@example.com' },
+    { username: 'admin', password: 'admin123', email: 'admin@example.com' }
+  ];
 
   constructor(private http: HttpClient) {
     // Check for saved token in local storage
@@ -62,14 +66,9 @@ export class PredictionService {
   }
 
   private mockLogin(username: string, password: string): Observable<any> {
-    // Valid test credentials
-    const validUsers = [
-      { username: 'testuser', password: 'password123', email: 'test@example.com' },
-      { username: 'admin', password: 'admin123', email: 'admin@example.com' }
-    ];
 
-    const user = validUsers.find(u => u.username === username && u.password === password);
-    
+    const user = this.validUsers.find(u => u.username === username && u.password === password);
+
     if (user) {
       const mockToken = `mock-jwt-token-${Math.random().toString(36).substring(2, 15)}`;
       this.authToken = mockToken;
@@ -89,20 +88,17 @@ export class PredictionService {
 
   private mockRegister(email: string, username: string, password: string): Observable<any> {
     // Check if username already exists in our mock data
-    const validUsers = [
-      { username: 'testuser', password: 'password123', email: 'test@example.com' },
-      { username: 'admin', password: 'admin123', email: 'admin@example.com' }
-    ];
 
-    if (validUsers.some(u => u.username === username)) {
+    if (this.validUsers.some(u => u.username === username)) {
       return throwError(() => new Error('Username already exists')).pipe(delay(800));
     }
 
-    if (validUsers.some(u => u.email === email)) {
+    if (this.validUsers.some(u => u.email === email)) {
       return throwError(() => new Error('Email already registered')).pipe(delay(800));
     }
 
     // Registration successful
+    this.validUsers.push({ username, password, email }); 
     return of({
       success: true,
       message: 'Registration successful'
