@@ -11,7 +11,7 @@ import { PredictionRequest, PredictionResponse } from './prediction.interface';
 })
 export class PredictionService {
   private apiUrl = environment.apiUrl || 'https://api.yourdomain.com';
-  private useMockData = true;
+  private useMockData = false;
   private authToken: string | null = null;
   public validUsers = [
     { username: 'testuser', password: 'password123', email: 'test@example.com' },
@@ -124,7 +124,7 @@ export class PredictionService {
     const username = localStorage.getItem('username') || '';
     return new HttpHeaders({
       'Content-Type': 'application/json',
-      'authToken': `Bearer ${this.authToken || ''}`, // Use empty string as fallback
+      'authToken': `${this.authToken || ''}`, // Use empty string as fallback
       'username': username
     });
   }
@@ -154,10 +154,21 @@ export class PredictionService {
       return mockUploadCsvFile(file);
     }
     
-    const endpoint = `${this.apiUrl}/upload`;
+    const endpoint = `${this.apiUrl}/bulk_predict`;
     const formData = new FormData();
     formData.append('file', file);
-    return this.http.post<any>(endpoint, formData, { headers: this.getAuthHeaders() });
+    
+    // Create headers without Content-Type (browser will set it for FormData)
+    const username = localStorage.getItem('username') || '';
+    const headers = new HttpHeaders({
+      'authToken': `${this.authToken || ''}`,
+      'username': username
+      // Don't set Content-Type - let browser set it automatically for FormData
+    });
+    
+    return this.http.post<any>(endpoint, formData, { headers }).pipe(
+      catchError(this.handleError)
+    );
   }
 
   /**
@@ -226,13 +237,55 @@ export class PredictionService {
    * Get user data including prediction history and files
    * @returns Observable with user data
    */
-  getUserData(): Observable<{ predictionHistory: any[], pendingFiles: any[], completedFiles: any[] }> {
+  getUserData(userId: string): Observable<{ predictionHistory: any[], pendingFiles: any[], completedFiles: any[] }> {
     if (this.useMockData) {
       return mockGetUserData();
     }
     
-    const endpoint = `${this.apiUrl}/user/data`;
-    return this.http.get<any>(endpoint, { headers: this.getAuthHeaders() });
+    const endpoint = `${this.apiUrl}/user-data/${userId}`;
+    return this.http.get<any>(endpoint, { headers: this.getAuthHeaders() }).pipe(
+      map(response => {
+        // Transform the API response to match frontend expectations
+        const transformedResponse = {
+          predictionHistory: this.transformPredictionHistory(response.prediction_history?.predictions || []),
+          pendingFiles: response.pending_files?.files || [],
+          completedFiles: response.completed_files?.files || []
+        };
+        
+        console.log('Transformed getUserData response:', transformedResponse);
+        return transformedResponse;
+      }),
+      catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Transform prediction history from API format to frontend format
+   * @param predictions Array of predictions from API
+   * @returns Transformed predictions array
+   */
+  private transformPredictionHistory(predictions: any[]): any[] {
+    return predictions.map(prediction => {
+      // Convert sentiment scores from decimal to percentage and normalize names
+      const transformedSentimentScores = prediction.sentiment_scores?.map((score: any) => ({
+        name: score.name.toLowerCase() === 'neutral' ? 'Neutral' : score.name,
+        value: score.value <= 1 ? Number((score.value * 100).toFixed(2)) : score.value
+      })) || [];
+
+      // Convert confidence from decimal to percentage
+      let confidence = prediction.confidence || 0;
+      if (confidence <= 1) {
+        confidence = Number((confidence * 100).toFixed(2));
+      }
+
+      return {
+        text: prediction.text,
+        final_prediction: prediction.final_prediction,
+        confidence: confidence,
+        sentiment_scores: transformedSentimentScores,
+        timestamp: new Date(prediction.timestamp || Date.now())
+      };
+    });
   }
 
   /**
@@ -243,6 +296,40 @@ export class PredictionService {
       addPredictionToHistory(prediction);
     }
     // If using real API, the history would be saved server-side
+  }
+
+  /**
+   * Get user's prediction history from the API
+   * @param userId User ID to fetch history for
+   * @returns Observable with prediction history
+   */
+  getPredictionHistory(userId: string): Observable<any> {
+    if (this.useMockData) {
+      // Use the existing mock data function
+      return mockGetUserData().pipe(
+        map(userData => ({
+          user_id: userId,
+          predictions: userData.predictionHistory || [],
+          total_predictions: userData.predictionHistory?.length || 0
+        })),
+        delay(500)
+      );
+    }
+    
+    const endpoint = `${this.apiUrl}/prediction-history/${userId}`;
+    return this.http.get<any>(endpoint, { headers: this.getAuthHeaders() }).pipe(
+      map(response => {
+        // Transform the prediction history response
+        const transformedPredictions = this.transformPredictionHistory(response.predictions || []);
+        
+        return {
+          user_id: response.user_id,
+          predictions: transformedPredictions,
+          total_predictions: response.total_predictions || transformedPredictions.length
+        };
+      }),
+      catchError(this.handleError)
+    );
   }
 
   downloadFile(fileId: string): Observable<any> {

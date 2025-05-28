@@ -177,11 +177,11 @@ export class DashboardComponent implements OnInit {
 
   chartRadarData: ChartData = {
     labels: [
-      'Very Positive',
+      'Positive',
       'Slightly Positive',
       'Neutral',
       'Slightly Negative',
-      'Very Negative'
+      'Negative'
     ],
     datasets: [
       {
@@ -232,11 +232,28 @@ export class DashboardComponent implements OnInit {
       this.cdr.detectChanges();
     });
 
-    this.predictionService.getUserData().subscribe({
+    // Get user ID for API calls
+    const userId = localStorage.getItem('userId') || 
+                this.extractUserIdFromToken() || 
+                'default-user-id';
+
+    // Load user data (includes prediction history, pending files, and completed files)
+    this.predictionService.getUserData(userId).subscribe({
       next: (userData) => {
-        this.singlePredictionHistory = userData.predictionHistory;
-        this.pendingFiles = userData.pendingFiles;
-        this.myFiles = userData.completedFiles;
+        console.log('Received user data:', userData);
+        
+        // Set prediction history
+        this.singlePredictionHistory = userData.predictionHistory || [];
+        
+        // Set initial prediction for display
+        if (this.singlePredictionHistory.length > 0) {
+          this.lastSinglePrediction = { ...this.singlePredictionHistory[0] };
+          this.selectedHistoryItem = this.singlePredictionHistory[0];
+        }
+
+        // Set pending and completed files
+        this.pendingFiles = userData.pendingFiles || [];
+        this.myFiles = userData.completedFiles || [];
         this.filteredFiles = this.myFiles;
 
         // Set active CSV file if any exist
@@ -244,11 +261,11 @@ export class DashboardComponent implements OnInit {
           this.activeCsvFile = this.csvFiles[0].id;
         }
 
-        // Set initial data for single prediction display
-        if (this.singlePredictionHistory.length > 0) {
-          this.lastSinglePrediction = { ...this.singlePredictionHistory[0] };
-          this.selectedHistoryItem = this.singlePredictionHistory[0];
-        }
+        console.log('Processed data:', {
+          predictionHistory: this.singlePredictionHistory.length,
+          pendingFiles: this.pendingFiles.length,
+          completedFiles: this.myFiles.length
+        });
       },
       error: (error) => {
         console.error('Error loading user data:', error);
@@ -258,16 +275,16 @@ export class DashboardComponent implements OnInit {
         this.pendingFiles = SAMPLE_PENDING_FILES;
         this.myFiles = SAMPLE_MY_FILES;
         this.filteredFiles = this.myFiles;
-
+        
         if (this.singlePredictionHistory.length > 0) {
           this.lastSinglePrediction = { ...this.singlePredictionHistory[0] };
           this.selectedHistoryItem = this.singlePredictionHistory[0];
         }
-      },
+      }
     });
   }
 
-  showHistoryItemChart(prediction: any): void {
+showHistoryItemChart(prediction: any): void {
     this.selectedHistoryItem = prediction;
 
     // Update the current chart with this prediction's data
@@ -354,40 +371,49 @@ export class DashboardComponent implements OnInit {
     this.predictionService.predictText(textValue).subscribe({
       next: (response) => {
         try {
-          // Handle both array and object formats for sentiment_scores
+          // Handle sentiment_scores array format
           let categories: {name: string, value: number}[] = [];
           
           if (Array.isArray(response.sentiment_scores)) {
-            // If sentiment_scores is already an array
-            categories = response.sentiment_scores.map(score => ({
-              name: score.name === 'neutral' ? 'Neutral' : score.name,
-              value: typeof score.value === 'number' ? score.value : 
-                    Number((Number(score.value) * 100).toFixed(2))
-            }));
+            categories = response.sentiment_scores.map(score => {
+              // Normalize the name (handle lowercase "neutral")
+              let normalizedName = score.name;
+              if (score.name.toLowerCase() === 'neutral') {
+                normalizedName = 'Neutral';
+              }
+              
+              // Convert decimal to percentage if value is less than or equal to 1
+              let normalizedValue = score.value;
+              if (normalizedValue <= 1) {
+                normalizedValue = Number((normalizedValue * 100).toFixed(2));
+              }
+              
+              return {
+                name: normalizedName,
+                value: normalizedValue
+              };
+            });
           } else if (response.sentiment_scores && typeof response.sentiment_scores === 'object') {
-            // If sentiment_scores is an object
+            // Handle object format (backup)
             categories = Object.entries(response.sentiment_scores).map(
               ([name, value]) => ({
-                name: name === 'neutral' ? 'Neutral' : name,
-                value: Number((Number(value) * 100).toFixed(2)),
+                name: name.toLowerCase() === 'neutral' ? 'Neutral' : name,
+                value: Number(value) <= 1 ? Number((Number(value) * 100).toFixed(2)) : Number(value),
               })
             );
           }
 
-          // Calculate confidence (highest score)
-          let confidence = 0;
-          if (response.final_prediction) {
-            // Find the category matching the final prediction
-            const matchingCategory = categories.find(
-              c => c.name.toLowerCase() === response.final_prediction?.toLowerCase()
-            );
-            
-            if (matchingCategory) {
-              confidence = matchingCategory.value;
-            } else if (categories.length > 0) {
-              // If no match found, use highest score
-              confidence = Math.max(...categories.map(c => c.value));
-            }
+          // Use the confidence from the response, or calculate from highest sentiment score
+          let confidence = response.confidence || 0;
+          
+          // If confidence is in decimal format, convert to percentage
+          if (confidence <= 1) {
+            confidence = Number((confidence * 100).toFixed(2));
+          }
+          
+          // If no confidence provided, use highest sentiment score
+          if (!confidence && categories.length > 0) {
+            confidence = Math.max(...categories.map(c => c.value));
           }
 
           const prediction = {
@@ -398,25 +424,58 @@ export class DashboardComponent implements OnInit {
             timestamp: new Date(),
           };
 
-          // Save prediction to history
+          console.log('Processed prediction:', prediction);
+
+          // Save prediction to history via API
           this.predictionService.savePredictionToHistory(prediction);
+
+          // Get user ID from localStorage or token
+          const userId = localStorage.getItem('userId') || 
+                      this.extractUserIdFromToken() || 
+                      'default-user-id';
+
+          // Fetch updated prediction history from API
+          this.predictionService.getPredictionHistory(userId).subscribe({
+            next: (historyResponse) => {
+              console.log('Updated history response:', historyResponse);
+              
+              // Update prediction history with API response
+              if (historyResponse && historyResponse.predictions) {
+                this.singlePredictionHistory = historyResponse.predictions;
+              }
+
+              // Set the latest prediction for display
+              if (this.singlePredictionHistory.length > 0) {
+                this.lastSinglePrediction = this.singlePredictionHistory[0];
+                this.selectedHistoryItem = this.singlePredictionHistory[0];
+              }
+
+              this.historyCurrentPage = 0;
+              this._cachedChartData = null;
+              this.singlePredictionForm.reset();
+              
+              // Force change detection to update UI
+              this.cdr.detectChanges();
+            },
+            error: (historyError) => {
+              console.error('Error fetching updated prediction history:', historyError);
+              
+              // Fallback: add prediction to local history if API call fails
+              this.singlePredictionHistory.unshift(prediction);
+              this.lastSinglePrediction = prediction;
+              this.selectedHistoryItem = prediction;
+              this.historyCurrentPage = 0;
+              this._cachedChartData = null;
+              this.singlePredictionForm.reset();
+              this.cdr.detectChanges();
+              
+              alert('Prediction saved, but failed to refresh history. Please refresh the page to see updated history.');
+            }
+          });
           
-          // // Update UI immediately without calling getUserData again
-          // if (Array.isArray(this.singlePredictionHistory)) {
-          //   this.singlePredictionHistory.unshift(prediction);
-          // } else {
-          //   this.singlePredictionHistory = [prediction];
-          // }
-          
-          this.lastSinglePrediction = prediction;
-          this.selectedHistoryItem = prediction;
-          this.historyCurrentPage = 0;
-          this._cachedChartData = null;
-          this.singlePredictionForm.reset();
         } catch (err) {
           console.error('Error processing prediction result:', err);
           alert('Failed to process prediction result. Please try again.');
-        } finally {
           this.isProcessingSinglePrediction = false;
         }
       },
@@ -432,10 +491,29 @@ export class DashboardComponent implements OnInit {
         } else {
           alert(`Failed to process prediction: ${error.message || 'Unknown error'}`);
         }
+      },
+      complete: () => {
+        // Ensure loading state is reset regardless of success/error
+        this.isProcessingSinglePrediction = false;
       }
     });
   }
-  
+
+  // Helper method to extract user ID from JWT token
+  private extractUserIdFromToken(): string | null {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) return null;
+      
+      // Simple JWT decode (you might want to use a proper JWT library)
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.user_id || payload.id || null;
+    } catch (error) {
+      console.error('Error extracting user ID from token:', error);
+      return null;
+    }
+  }
+
   /**
    * Removes a CSV file from the visualization
    * @param fileId The ID of the file to remove
@@ -744,11 +822,11 @@ export class DashboardComponent implements OnInit {
   // Helper method to get color for category
   getCategoryColor(categoryName: string): string {
     const colorMap: Record<string, string> = {
-      'Very Negative': 'rgba(220, 53, 69, 0.8)',
+      'Negative': 'rgba(220, 53, 69, 0.8)',
       'Slightly Negative': 'rgba(255, 193, 7, 0.8)',
-      Neutral: 'rgba(108, 117, 125, 0.8)',
+      'Neutral': 'rgba(108, 117, 125, 0.8)',
       'Slightly Positive': 'rgba(13, 202, 240, 0.8)',
-      'Very Positive': 'rgba(25, 135, 84, 0.8)',
+      'Positive': 'rgba(25, 135, 84, 0.8)',
     };
 
     return colorMap[categoryName] || 'gray';
@@ -914,11 +992,11 @@ export class DashboardComponent implements OnInit {
 
     // Assuming the API returns data with sentiment categories and counts
     const sentimentCounts: Record<string, number> = {
-      'Very Positive': 0,
+      'Positive': 0,
       'Slightly Positive': 0,
-      Neutral: 0,
+      'Neutral': 0,
       'Slightly Negative': 0,
-      'Very Negative': 0,
+      'Negative': 0,
     };
 
     // Count prediction categories
