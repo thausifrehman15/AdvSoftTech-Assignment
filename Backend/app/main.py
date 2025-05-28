@@ -79,21 +79,24 @@ def predict():
         text = data["text"]
         result = predict_sentiment(text)
 
+        # Create user directory if it doesn't exist
+        user_dir = USER_FILES_DIR / user_id
+        user_dir.mkdir(exist_ok=True)
+        
+        history_file = user_dir / "prediction_history.json"
+
         # Load existing predictions
         try:
-            with open(HISTORY_FILE, "r") as f:
+            with open(history_file, "r") as f:
                 predictions = json.load(f)
         except (FileNotFoundError, json.JSONDecodeError):
-            predictions = {}
+            predictions = []
 
         # Add new prediction to user's history
-        if user_id not in predictions:
-            predictions[user_id] = []
-        
-        predictions[user_id].append(result)
+        predictions.append(result)
 
         # Save updated predictions
-        with open(HISTORY_FILE, "w") as f:
+        with open(history_file, "w") as f:
             json.dump(predictions, f, indent=4)
 
         return jsonify(result)
@@ -289,15 +292,23 @@ def get_prediction_history(user_id):
         return jsonify({"error": "Invalid token"}), 401
 
     try:
-        with open("prediction.json", 'r') as f:
+        user_dir = USER_FILES_DIR / user_id
+        history_file = user_dir / "prediction_history.json"
+
+        if not history_file.exists():
+            return jsonify({
+                "user_id": user_id,
+                "predictions": [],
+                "total_predictions": 0
+            }), 200
+
+        with open(history_file, 'r') as f:
             predictions = json.load(f)
-        
-        user_predictions = predictions.get(user_id, [])
         
         response = {
             "user_id": user_id,
-            "predictions": user_predictions,
-            "total_predictions": len(user_predictions)
+            "predictions": predictions,
+            "total_predictions": len(predictions)
         }
         
         return jsonify(response), 200
