@@ -93,7 +93,7 @@ def predict():
             predictions = []
 
         # Add new prediction to user's history
-        predictions.insert(0, result)
+        predictions.append(result)
 
         # Save updated predictions
         with open(history_file, "w") as f:
@@ -238,7 +238,7 @@ def check_subscription():
 @app.route("/bulk_predict", methods=["POST"])
 def bulk_predict():
     try:
-        # Check authentication
+        # Get token and user info from headers
         token = request.headers.get("authToken")
         username = request.headers.get("username")
 
@@ -295,50 +295,69 @@ def bulk_predict():
         if df.empty:
             return jsonify({"error": "CSV file is empty"}), 400
 
-        # Process predictions
+        # Create user directory if it doesn't exist
+        user_dir = USER_FILES_DIR / user_id
+        user_dir.mkdir(exist_ok=True)
+
+        # Generate unique file ID and create file paths
+        file_id = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
+        pending_file_path = user_dir / f"{file_id}_pending.csv"
+        
+        # Save the original file as pending
+        df.to_csv(pending_file_path, index=False)
+
+        # Process rows and create result DataFrame
         rows = []
         for index, text in enumerate(df['text']):
             if pd.isna(text) or str(text).strip() == '':
                 continue  # Skip empty rows
                 
             result = predict_sentiment(str(text))
+            print(f"Processing row {index + 1}: {text} -> {result}")
+            
+            # Convert sentiment_scores list to dictionary for easier access
+            sentiment_dict = {}
+            for score_item in result["sentiment_scores"]:
+                sentiment_dict[score_item["name"]] = score_item["value"]
             
             row = {
                 "text": text,
                 "final_prediction": result["final_prediction"],
-                "Negative": result["sentiment_scores"].get("Negative", 0),
-                "Slightly Negative": result["sentiment_scores"].get("Slightly Negative", 0),
-                "neutral": result["sentiment_scores"].get("neutral", 0),
-                "Slightly Positive": result["sentiment_scores"].get("Slightly Positive", 0),
-                "Positive": result["sentiment_scores"].get("Positive", 0),
+                "confidence": result["confidence"],
+                "Negative": sentiment_dict.get("Negative", 0),
+                "Slightly Negative": sentiment_dict.get("Slightly Negative", 0),
+                "neutral": sentiment_dict.get("neutral", 0),
+                "Slightly Positive": sentiment_dict.get("Slightly Positive", 0),
+                "Positive": sentiment_dict.get("Positive", 0),
             }
             rows.append(row)
-
         if not rows:
             return jsonify({"error": "No valid text data found in CSV"}), 400
 
-        # Save results to user directory
-        user_dir = USER_FILES_DIR / user_id
-        user_dir.mkdir(exist_ok=True)
-        
-        # Generate unique filename with timestamp
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        result_filename = f"bulk_predictions_{timestamp}_completed.csv"
-        result_filepath = user_dir / result_filename
-        
+        # Save processed results
         result_df = pd.DataFrame(rows)
-        result_df.to_csv(result_filepath, index=False)
+        completed_file_path = user_dir / f"{file_id}_completed.csv"
+        result_df.to_csv(completed_file_path, index=False)
 
-        return jsonify({
+        # Delete pending file after processing is complete
+        if pending_file_path.exists():
+            pending_file_path.unlink()
+
+        response_data = {
+            "fileId": file_id,
+            "name": file.filename,
+            "timestamp": datetime.utcnow().isoformat(),
+            "status": "completed",
+            "totalRows": len(rows),
             "message": "Bulk prediction completed successfully",
-            "predictions": rows,
-            "total_processed": len(rows),
-            "file_saved": result_filename
-        })
+            "predictions": rows[:5]  # Return first 5 predictions as sample
+        }
+
+        return jsonify(response_data), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
+    
 # 1. Prediction History API
 @app.route("/prediction-history/<user_id>", methods=["GET"])
 def get_prediction_history(user_id):
@@ -547,6 +566,51 @@ def get_user_data(user_id):
         }
 
         return jsonify(response_data), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/file-data/<user_id>/<file_id>", methods=["GET"])
+def get_file_data(user_id, file_id):
+    # Extract token and username from headers
+    token = request.headers.get("authToken")
+    username = request.headers.get("username")
+
+    if not token or not username:
+        return jsonify({"error": "Authorization token and Username are required"}), 401
+
+    # Verify the token
+    try:
+        decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        if decoded_token.get("username") != username:
+            return jsonify({"error": "Invalid token or username mismatch"}), 403
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token has expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    try:
+        user_dir = USER_FILES_DIR / user_id
+        file_path = user_dir / f"{file_id}_completed.csv"
+
+        if not file_path.exists():
+            return jsonify({
+                "error": "File not found",
+                "message": "The requested file does not exist"
+            }), 404
+
+        # Read the CSV file
+        df = pd.read_csv(file_path, nrows=10)  # Read only first 10 rows
+        
+        file_data = {
+            "file_id": file_id,
+            "filename": file_path.name,
+            "total_rows_shown": len(df),
+            "columns": list(df.columns),
+            "data": df.to_dict('records')
+        }
+
+        return jsonify(file_data), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
