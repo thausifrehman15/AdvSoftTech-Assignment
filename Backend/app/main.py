@@ -53,13 +53,49 @@ def create_token(user_id, username, email):
 @app.route("/predict", methods=["POST"])
 def predict():
     try:
+        # Get token and user info from headers
+        token = request.headers.get("authToken")
+        username = request.headers.get("username")
+
+        if not token or not username:
+            return jsonify({"error": "Authorization required"}), 401
+
+        # Verify token
+        try:
+            decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            if decoded_token.get("username") != username:
+                return jsonify({"error": "Invalid token"}), 403
+            user_id = decoded_token.get("user_id")
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Token expired"}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"error": "Invalid token"}), 401
+
+        # Get prediction data
         data = request.get_json()
         if not data or "text" not in data:
             return jsonify({"error": "No text provided"}), 400
 
         text = data["text"]
-        # Simply pass None for tokenizer, model, and labels
         result = predict_sentiment(text)
+
+        # Load existing predictions
+        try:
+            with open(HISTORY_FILE, "r") as f:
+                predictions = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            predictions = {}
+
+        # Add new prediction to user's history
+        if user_id not in predictions:
+            predictions[user_id] = []
+        
+        predictions[user_id].append(result)
+
+        # Save updated predictions
+        with open(HISTORY_FILE, "w") as f:
+            json.dump(predictions, f, indent=4)
+
         return jsonify(result)
 
     except Exception as e:
@@ -253,22 +289,14 @@ def get_prediction_history(user_id):
         return jsonify({"error": "Invalid token"}), 401
 
     try:
-        with open(HISTORY_FILE, 'r') as f:
-            history = json.load(f)
+        with open("prediction.json", 'r') as f:
+            predictions = json.load(f)
         
-        user_predictions = history.get(user_id, [])
+        user_predictions = predictions.get(user_id, [])
         
         response = {
             "user_id": user_id,
-            "predictions": [
-                {
-                    "text": pred["text"],
-                    "final_prediction": pred["final_prediction"],
-                    "confidence": pred["confidence"],
-                    "sentiment_scores": pred["sentiment_scores"]
-                }
-                for pred in user_predictions
-            ],
+            "predictions": user_predictions,
             "total_predictions": len(user_predictions)
         }
         
