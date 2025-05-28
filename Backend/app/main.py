@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify
 import os
-from app.model_loader import load_model
 from app.predictor import predict_sentiment
 from app.auth import register_user, login_user
 from app.email_utils import send_email_with_attachment  # ✅ NEW
@@ -31,9 +30,6 @@ swaggerui_blueprint = get_swaggerui_blueprint(
 )
 app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 
-# Load model on startup
-tokenizer, model, labels = load_model()
-
 SECRET_KEY = 'your_secret_key'  # This should be securely stored in your config
 
 HISTORY_FILE = "prediction_history.json"
@@ -56,42 +52,18 @@ def create_token(user_id, username, email):
 
 @app.route("/predict", methods=["POST"])
 def predict():
-    # Extract token and username from headers
-    token = request.headers.get("authToken")
-    username = request.headers.get("username")
-
-    if not token or not username:
-        return jsonify({"error": "Authorization token and Username are required"}), 401
-
-    # Verify the token
     try:
-        decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        if decoded_token.get("username") != username:
-            return jsonify({"error": "Invalid token or username mismatch"}), 403
-    except jwt.ExpiredSignatureError:
-        return jsonify({"error": "Token has expired"}), 401
-    except jwt.InvalidTokenError:
-        return jsonify({"error": "Invalid token"}), 401
+        data = request.get_json()
+        if not data or "text" not in data:
+            return jsonify({"error": "No text provided"}), 400
 
-    # Process the prediction
-    data = request.get_json()
-    if not data or "text" not in data:
-        return jsonify({"error": "Please provide a 'text' field"}), 400
+        text = data["text"]
+        # Simply pass None for tokenizer, model, and labels
+        result = predict_sentiment(text)
+        return jsonify(result)
 
-    result = predict_sentiment(data["text"], tokenizer, model, labels)
-    # Modify response to match the specified interface
-    response = {
-        "text": data["text"],
-        "confidence": max(result["sentiment_scores"].values()),
-        "final_prediction": result.get("final_prediction"),
-        "sentiment_scores": [
-            {"name": k, "value": v} 
-            for k, v in result["sentiment_scores"].items()
-        ],
-        "timestamp": datetime.utcnow().isoformat()
-    }
-    return jsonify(response)
-
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/signup", methods=["POST"])
 def signup():
@@ -226,44 +198,21 @@ def check_subscription():
 
 @app.route("/bulk_predict", methods=["POST"])
 def bulk_predict():
-    # Extract token and username from headers
-    token = request.headers.get("authToken")
-    username = request.headers.get("username")
-
-    if not token or not username:
-        return jsonify({"error": "Authorization token and Username are required"}), 401
-
-    # Verify the token
     try:
-        decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        if decoded_token.get("username") != username:
-            return jsonify({"error": "Invalid token or username mismatch"}), 403
-    except jwt.ExpiredSignatureError:
-        return jsonify({"error": "Token has expired"}), 401
-    except jwt.InvalidTokenError:
-        return jsonify({"error": "Invalid token"}), 401
+        if "file" not in request.files:
+            return jsonify({"error": "No file uploaded"}), 400
 
-    # Check if the file is in the request
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part in the request"}), 400
-
-    file = request.files['file']
-
-    if file.filename == '':
-        return jsonify({"error": "No file selected"}), 400
-
-    try:
-        # Read the CSV file
+        file = request.files["file"]
         df = pd.read_csv(file)
 
         if 'text' not in df.columns:
             return jsonify({"error": "CSV must contain a 'text' column"}), 400
 
         rows = []
-
         for text in df['text']:
-            result = predict_sentiment(str(text), tokenizer, model, labels)
-
+            # Simply pass None for tokenizer, model, and labels
+            result = predict_sentiment(str(text))
+            
             row = {
                 "text": text,
                 "category": result["category"],
@@ -274,29 +223,10 @@ def bulk_predict():
                 "Slightly Positive": result["sentiment_scores"].get("Slightly Positive", 0),
                 "Positive": result["sentiment_scores"].get("Positive", 0),
             }
-
             rows.append(row)
 
         result_df = pd.DataFrame(rows)
-        csv_buffer = io.StringIO()
-        result_df.to_csv(csv_buffer, index=False)
-        csv_buffer.seek(0)
-
-        # Generate a unique file ID
-        import uuid
-        file_id = str(uuid.uuid4())
-
-        # Save the file locally (optional, for debugging or future use)
-        with open(f"{file_id}.csv", "w", encoding="utf-8") as f:
-            f.write(csv_buffer.getvalue())
-
-        # Return the response in the required format
-        return jsonify({
-            "fileId": file_id,
-            "name": "bulk_predictions.csv",
-            "status": "Completed",
-            "timestamp": datetime.utcnow().isoformat()
-        }), 200
+        return jsonify({"predictions": rows})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
