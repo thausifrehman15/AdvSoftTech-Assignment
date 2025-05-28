@@ -14,23 +14,22 @@ def predict_sentiment(text, tokenizer=None, model=None, labels=None):
     total = sum(raw_scores)
     normalized_scores = [score/total for score in raw_scores]
     
-    # Format sentiment scores as list of objects
-    sentiment_scores = [
-        {"name": label, "value": round(score, 4)}
-        for label, score in zip(labels, normalized_scores)
-    ]
-
-    # Get highest scoring sentiment as final prediction
-    max_score_index = normalized_scores.index(max(normalized_scores))
-    final_prediction = labels[max_score_index]
+    # Format sentiment scores as list of objects and find maximum score
+    sentiment_scores = []
+    max_score = 0
+    max_label = ""
     
-    # Generate random confidence between 0.5 and 1.0
-    confidence = round(random.uniform(0.5, 1.0), 4)
+    for label, score in zip(labels, normalized_scores):
+        rounded_score = round(score, 4)
+        sentiment_scores.append({"name": label, "value": rounded_score})
+        if rounded_score > max_score:
+            max_score = rounded_score
+            max_label = label
 
     return {
         "text": text,
-        "confidence": confidence,
-        "final_prediction": final_prediction,
+        "confidence": max_score,  # Using max score as confidence
+        "final_prediction": max_label,  # Using label with max score as final prediction
         "sentiment_scores": sentiment_scores,
         "timestamp": datetime.now().isoformat()
     }
