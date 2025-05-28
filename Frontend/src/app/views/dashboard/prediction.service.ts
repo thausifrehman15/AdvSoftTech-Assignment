@@ -3,7 +3,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, of, throwError } from 'rxjs';
 import { catchError, delay, map, tap } from 'rxjs/operators';
 import { environment } from '../../environment/environment';
-import { addPredictionToHistory, mockCheckFileStatus, mockGetFileDetails, mockGetFiles, mockGetUserData, mockPredictText, mockUploadCsvFile } from './datafiles';
+import { addPredictionToHistory, mockCheckFileStatus, mockGetFileDataPaginated, mockGetFileDetails, mockGetFiles, mockGetUserData, mockPredictText, mockUploadCsvFile } from './datafiles';
 import { PredictionRequest, PredictionResponse } from './prediction.interface';
 
 @Injectable({
@@ -172,6 +172,23 @@ export class PredictionService {
     const endpoint = `${this.apiUrl}/files`;
     return this.http.get<any>(endpoint, { headers: this.getAuthHeaders() });
   }
+
+  /**
+   * Get paginated file data
+   * @param fileId ID of the file to retrieve
+   * @param page Page number (0-based)
+   * @param pageSize Number of items per page
+   * @returns Observable with paginated file data
+   */
+  getFileDataPaginated(fileId: string, page: number, pageSize: number): Observable<any> {
+    if (this.useMockData) {
+      return mockGetFileDataPaginated(fileId, page, pageSize);
+    }
+    
+    const endpoint = `${this.apiUrl}/files/${fileId}/data?page=${page}&pageSize=${pageSize}`;
+    return this.http.get<any>(endpoint, { headers: this.getAuthHeaders() });
+  }
+
 
   /**
    * Get detailed results for a specific file

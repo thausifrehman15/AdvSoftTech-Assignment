@@ -103,6 +103,9 @@ export class DashboardComponent implements OnInit {
   public historyCurrentPage: number = 0;
   public selectedCategories: any[] = [];
   public showCategoryModal: boolean = false;
+  public isLoadingPageData: boolean = false;
+  public currentFileData: any[] = [];
+  public currentFilePagination: any = null;
 
   public lastSinglePrediction: PredictionResponse | null = null;
   // Pie chart options
@@ -116,7 +119,7 @@ export class DashboardComponent implements OnInit {
   };
 
   options = {
-    maintainAspectRatio: false,
+    maintainAspectRatio: false
   };
 
 
@@ -147,6 +150,10 @@ export class DashboardComponent implements OnInit {
   }
 
   get totalPages(): number {
+    if (this.activeTab === 'bulk' && this.currentFilePagination) {
+      return this.currentFilePagination.totalPages;
+    }
+    
     return this.currentCsvFile
       ? Math.ceil(this.currentCsvFile.data.length / this.pageSize)
       : 0;
@@ -522,24 +529,10 @@ export class DashboardComponent implements OnInit {
     );
 
     if (existingFileIndex !== -1) {
-      // File already exists in tabs, just activate it with proper loading state
-      this.isLoadingFile = true;
-      this.disableOtherMyFiles = true;
-      this.isChartReady = false;
-      
-      // Set the active file and update chart key
       this.activeCsvFile = fileId;
       this.currentPage = 0;
-      this.chartKey = `${fileId}-${Date.now()}`; // Force chart recreation
-      
-      // Wait for chart to properly initialize even for existing files
-      setTimeout(() => {
-        this.isLoadingFile = false;
-        this.disableOtherMyFiles = false;
-        this.isChartReady = true;
-        this.cdr.detectChanges();
-      }, 800); // Shorter delay for existing files
-      
+      this.chartKey = `${fileId}-${Date.now()}`;
+      this.loadPageData(fileId, 0);
       return;
     }
 
@@ -548,39 +541,28 @@ export class DashboardComponent implements OnInit {
     this.disableOtherMyFiles = true;
     this.isChartReady = false;
 
-    // Otherwise, fetch file details from API
     this.predictionService.getFileDetails(fileId).subscribe({
       next: (fileDetails) => {
         try {
           // Create chart data from the file details
           const chartData = this.generateChartDataFromApiResponse(fileDetails);
 
-          // Add to visualization tabs
           const newFile: CsvFile = {
             id: fileId,
             name: fileDetails.name,
             status: 'completed',
             timestamp: new Date(fileDetails.timestamp),
             isDefault: false,
-            data: fileDetails.data || [],
+            data: [],
             chartData: chartData,
           };
 
           this.csvFiles.push(newFile);
           this.activeCsvFile = fileId;
           this.currentPage = 0;
-          this.chartKey = `${fileId}-${Date.now()}`; // Force chart recreation
+          this.chartKey = `${fileId}-${Date.now()}`;
 
-          // Force change detection first
-          this.cdr.detectChanges();
-
-          // Wait longer for chart to fully initialize for new files
-          setTimeout(() => {
-            this.isLoadingFile = false;
-            this.disableOtherMyFiles = false;
-            this.isChartReady = true;
-            this.cdr.detectChanges();
-          }, this.chartInitializationDelay);
+          this.loadPageData(fileId, 0);
 
         } catch (error) {
           console.error('Error processing file details:', error);
@@ -595,6 +577,34 @@ export class DashboardComponent implements OnInit {
       },
     });
   }
+
+  loadPageData(fileId: string, page: number): void {
+    this.isLoadingPageData = true;
+    
+    this.predictionService.getFileDataPaginated(fileId, page, this.pageSize).subscribe({
+      next: (response) => {
+        this.currentFileData = response.data || [];
+        this.currentFilePagination = response.pagination || null;
+        this.currentPage = page;
+        
+        // Update loading states
+        this.isLoadingPageData = false;
+        this.isLoadingFile = false;
+        this.disableOtherMyFiles = false;
+        this.isChartReady = true;
+        
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error loading page data:', error);
+        this.isLoadingPageData = false;
+        this.isLoadingFile = false;
+        this.disableOtherMyFiles = false;
+        alert('Failed to load page data. Please try again.');
+      }
+    });
+  }
+
 
   // Chart data for single prediction
   get singlePredictionChartData(): ChartData {
@@ -642,15 +652,25 @@ export class DashboardComponent implements OnInit {
     return chartData;
   }
 
-  getPaginatedData(
-    dataArray: any[],
-    currentPage: number,
-    pageSize: number
-  ): any[] {
+  getPaginatedData(dataArray: any[], currentPage: number, pageSize: number): any[] {
+    // For bulk data, return the current page data from API
+    if (this.activeTab === 'bulk') {
+      return this.currentFileData || [];
+    }
+    
+    // For history, use client-side pagination
     if (!dataArray || !dataArray.length) return [];
     const start = currentPage * pageSize;
     const end = start + pageSize;
     return dataArray.slice(start, end);
+  }
+
+  get totalItems(): number {
+    if (this.activeTab === 'bulk' && this.currentFilePagination) {
+      return this.currentFilePagination.totalItems;
+    }
+    
+    return this.currentCsvFile ? this.currentCsvFile.data.length : 0;
   }
 
   // Common method to get visible page numbers
@@ -695,16 +715,11 @@ export class DashboardComponent implements OnInit {
     return pages;
   }
 
-  // Common method to change page
   changePage(page: number, target: 'bulk' | 'history'): void {
     if (target === 'bulk') {
-      const totalPages = this.currentCsvFile
-        ? Math.ceil(this.currentCsvFile.data.length / this.pageSize)
-        : 0;
-
-      if (page >= 0 && page < totalPages) {
-        this.currentPage = page;
-      }
+      if (!this.activeCsvFile) return;
+      
+      this.loadPageData(this.activeCsvFile, page);
     } else {
       const totalPages = Math.ceil(
         this.singlePredictionHistory.length / this.historyPageSize
@@ -716,10 +731,11 @@ export class DashboardComponent implements OnInit {
     }
   }
 
-  // Common method to handle page size changes
   onPageSizeChange(target: 'bulk' | 'history'): void {
     if (target === 'bulk') {
-      this.currentPage = 0;
+      if (this.activeCsvFile) {
+        this.loadPageData(this.activeCsvFile, 0); // Reset to first page
+      }
     } else {
       this.historyCurrentPage = 0;
     }

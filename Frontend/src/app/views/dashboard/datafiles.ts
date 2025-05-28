@@ -729,6 +729,50 @@ export function mockGetFiles(): Observable<{
 }
 
 /**
+ * Mock API call to get paginated file data
+ * @param fileId ID of the file to retrieve
+ * @param page Page number (0-based)
+ * @param pageSize Number of items per page
+ * @returns Observable with paginated data
+ */
+export function mockGetFileDataPaginated(
+  fileId: string, 
+  page: number, 
+  pageSize: number
+): Observable<any> {
+  const file = csvFilesData.find(f => f.id === fileId) || completedFiles.find(f => f.id === fileId);
+  
+  if (!file || !file.data) {
+    return throwError(() => new Error('File not found'));
+  }
+  
+  const totalItems = file.data.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startIndex = page * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedData = file.data.slice(startIndex, endIndex);
+  
+  return of({
+    data: paginatedData,
+    pagination: {
+      currentPage: page,
+      pageSize: pageSize,
+      totalItems: totalItems,
+      totalPages: totalPages,
+      hasNext: page < totalPages - 1,
+      hasPrevious: page > 0
+    },
+    fileInfo: {
+      id: file.id,
+      name: file.name,
+      status: file.status,
+      timestamp: file.timestamp
+    }
+  }).pipe(delay(500)); // Simulate API delay
+}
+
+
+/**
  * Mock API call to get file details
  * @param fileId ID of the file to retrieve
  * @returns Observable with file data
