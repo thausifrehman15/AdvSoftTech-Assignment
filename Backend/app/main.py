@@ -93,7 +93,7 @@ def predict():
             predictions = []
 
         # Add new prediction to user's history
-        predictions.insert(0, result)
+        predictions.append(result)
 
         # Save updated predictions
         with open(history_file, "w") as f:
@@ -238,6 +238,24 @@ def check_subscription():
 @app.route("/bulk_predict", methods=["POST"])
 def bulk_predict():
     try:
+        # Get token and user info from headers
+        token = request.headers.get("authToken")
+        username = request.headers.get("username")
+
+        if not token or not username:
+            return jsonify({"error": "Authorization required"}), 401
+
+        # Verify token
+        try:
+            decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            if decoded_token.get("username") != username:
+                return jsonify({"error": "Invalid token"}), 403
+            user_id = decoded_token.get("user_id")
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Token expired"}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"error": "Invalid token"}), 401
+
         if "file" not in request.files:
             return jsonify({"error": "No file uploaded"}), 400
 
@@ -247,14 +265,23 @@ def bulk_predict():
         if 'text' not in df.columns:
             return jsonify({"error": "CSV must contain a 'text' column"}), 400
 
+        # Create user directory if it doesn't exist
+        user_dir = USER_FILES_DIR / user_id
+        user_dir.mkdir(exist_ok=True)
+
+        # Generate unique file ID and create file paths
+        file_id = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
+        pending_file_path = user_dir / f"{file_id}_pending.csv"
+        
+        # Save the original file as pending
+        df.to_csv(pending_file_path, index=False)
+
+        # Process rows and create result DataFrame
         rows = []
         for text in df['text']:
-            # Simply pass None for tokenizer, model, and labels
             result = predict_sentiment(str(text))
-            
             row = {
                 "text": text,
-                "category": result["category"],
                 "final_prediction": result["final_prediction"],
                 "Negative": result["sentiment_scores"].get("Negative", 0),
                 "Slightly Negative": result["sentiment_scores"].get("Slightly Negative", 0),
@@ -264,12 +291,26 @@ def bulk_predict():
             }
             rows.append(row)
 
+        # Save processed results
         result_df = pd.DataFrame(rows)
-        return jsonify({"predictions": rows})
+        completed_file_path = user_dir / f"{file_id}_completed.csv"
+        result_df.to_csv(completed_file_path, index=False)
+
+        # Delete pending file after processing is complete
+        pending_file_path.unlink()
+
+        response_data = {
+            "fileId": file_id,
+            "name": file.filename,
+            "timestamp": datetime.utcnow().isoformat(),
+            "status": "completed",
+            "totalRows": len(rows)
+        }
+
+        return jsonify(response_data), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 # 1. Prediction History API
 @app.route("/prediction-history/<user_id>", methods=["GET"])
@@ -479,6 +520,51 @@ def get_user_data(user_id):
         }
 
         return jsonify(response_data), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/file-data/<user_id>/<file_id>", methods=["GET"])
+def get_file_data(user_id, file_id):
+    # Extract token and username from headers
+    token = request.headers.get("authToken")
+    username = request.headers.get("username")
+
+    if not token or not username:
+        return jsonify({"error": "Authorization token and Username are required"}), 401
+
+    # Verify the token
+    try:
+        decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        if decoded_token.get("username") != username:
+            return jsonify({"error": "Invalid token or username mismatch"}), 403
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token has expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    try:
+        user_dir = USER_FILES_DIR / user_id
+        file_path = user_dir / f"{file_id}_completed.csv"
+
+        if not file_path.exists():
+            return jsonify({
+                "error": "File not found",
+                "message": "The requested file does not exist"
+            }), 404
+
+        # Read the CSV file
+        df = pd.read_csv(file_path, nrows=10)  # Read only first 10 rows
+        
+        file_data = {
+            "file_id": file_id,
+            "filename": file_path.name,
+            "total_rows_shown": len(df),
+            "columns": list(df.columns),
+            "data": df.to_dict('records')
+        }
+
+        return jsonify(file_data), 200
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
