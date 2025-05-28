@@ -83,7 +83,7 @@ def predict():
         user_dir = USER_FILES_DIR / user_id
         user_dir.mkdir(exist_ok=True)
         
-        history_file = user_dir / "prediction_history.json"
+        history_file = user_dir / HISTORY_FILE
 
         # Load existing predictions
         try:
@@ -238,23 +238,73 @@ def check_subscription():
 @app.route("/bulk_predict", methods=["POST"])
 def bulk_predict():
     try:
+        # Check authentication
+        token = request.headers.get("authToken")
+        username = request.headers.get("username")
+
+        if not token or not username:
+            return jsonify({"error": "Authorization required"}), 401
+
+        # Verify token
+        try:
+            decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            if decoded_token.get("username") != username:
+                return jsonify({"error": "Invalid token"}), 403
+            user_id = decoded_token.get("user_id")
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Token expired"}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"error": "Invalid token"}), 401
+
+        # Check subscription status
+        try:
+            with open("subscriptions.json", "r") as f:
+                subscriptions = json.load(f)
+        except FileNotFoundError:
+            subscriptions = {}
+
+        if username not in subscriptions or not subscriptions[username]:
+            return jsonify({
+                "error": "Subscription required", 
+                "message": "Please subscribe to access bulk prediction feature"
+            }), 403
+
+        # Check if file is uploaded
         if "file" not in request.files:
             return jsonify({"error": "No file uploaded"}), 400
 
         file = request.files["file"]
-        df = pd.read_csv(file)
+        
+        # Check if file is selected
+        if file.filename == '':
+            return jsonify({"error": "No file selected"}), 400
+
+        # Check file type
+        if not file.filename.lower().endswith('.csv'):
+            return jsonify({"error": "Only CSV files are allowed"}), 400
+
+        # Read and validate CSV
+        try:
+            df = pd.read_csv(file)
+        except Exception as e:
+            return jsonify({"error": f"Invalid CSV file: {str(e)}"}), 400
 
         if 'text' not in df.columns:
             return jsonify({"error": "CSV must contain a 'text' column"}), 400
 
+        if df.empty:
+            return jsonify({"error": "CSV file is empty"}), 400
+
+        # Process predictions
         rows = []
-        for text in df['text']:
-            # Simply pass None for tokenizer, model, and labels
+        for index, text in enumerate(df['text']):
+            if pd.isna(text) or str(text).strip() == '':
+                continue  # Skip empty rows
+                
             result = predict_sentiment(str(text))
             
             row = {
                 "text": text,
-                "category": result["category"],
                 "final_prediction": result["final_prediction"],
                 "Negative": result["sentiment_scores"].get("Negative", 0),
                 "Slightly Negative": result["sentiment_scores"].get("Slightly Negative", 0),
@@ -264,12 +314,30 @@ def bulk_predict():
             }
             rows.append(row)
 
+        if not rows:
+            return jsonify({"error": "No valid text data found in CSV"}), 400
+
+        # Save results to user directory
+        user_dir = USER_FILES_DIR / user_id
+        user_dir.mkdir(exist_ok=True)
+        
+        # Generate unique filename with timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        result_filename = f"bulk_predictions_{timestamp}_completed.csv"
+        result_filepath = user_dir / result_filename
+        
         result_df = pd.DataFrame(rows)
-        return jsonify({"predictions": rows})
+        result_df.to_csv(result_filepath, index=False)
+
+        return jsonify({
+            "message": "Bulk prediction completed successfully",
+            "predictions": rows,
+            "total_processed": len(rows),
+            "file_saved": result_filename
+        })
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 # 1. Prediction History API
 @app.route("/prediction-history/<user_id>", methods=["GET"])
@@ -438,7 +506,7 @@ def get_user_data(user_id):
         }
 
         # Get prediction history
-        history_file = user_dir / "prediction_history.json"
+        history_file = user_dir / HISTORY_FILE
         if history_file.exists():
             with open(history_file, 'r') as f:
                 predictions = json.load(f)
