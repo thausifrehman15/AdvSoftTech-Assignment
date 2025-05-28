@@ -93,7 +93,7 @@ def predict():
             predictions = []
 
         # Add new prediction to user's history
-        predictions.append(result)
+        predictions.insert(0, result)
 
         # Save updated predictions
         with open(history_file, "w") as f:
@@ -397,6 +397,89 @@ def get_completed_files(user_id):
             "completed_files": sorted(completed_files, key=lambda x: x["completed_at"], reverse=True),
             "total": len(completed_files)
         }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/user-data/<user_id>", methods=["GET"])
+def get_user_data(user_id):
+    # Extract token and username from headers
+    token = request.headers.get("authToken")
+    username = request.headers.get("username")
+
+    if not token or not username:
+        return jsonify({"error": "Authorization token and Username are required"}), 401
+
+    # Verify the token
+    try:
+        decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        if decoded_token.get("username") != username:
+            return jsonify({"error": "Invalid token or username mismatch"}), 403
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token has expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    try:
+        user_dir = USER_FILES_DIR / user_id
+        response_data = {
+            "user_id": user_id,
+            "prediction_history": {
+                "predictions": [],
+                "total_predictions": 0
+            },
+            "pending_files": {
+                "files": [],
+                "total": 0
+            },
+            "completed_files": {
+                "files": [],
+                "total": 0
+            }
+        }
+
+        # Get prediction history
+        history_file = user_dir / "prediction_history.json"
+        if history_file.exists():
+            with open(history_file, 'r') as f:
+                predictions = json.load(f)
+                response_data["prediction_history"] = {
+                    "predictions": predictions,
+                    "total_predictions": len(predictions)
+                }
+
+        # Get pending files
+        pending_files = []
+        for file_path in user_dir.glob("*_pending.csv"):
+            pending_files.append({
+                "file_id": file_path.stem.replace("_pending", ""),
+                "filename": file_path.name,
+                "submitted_at": datetime.fromtimestamp(file_path.stat().st_mtime).isoformat()
+            })
+        response_data["pending_files"] = {
+            "files": sorted(pending_files, key=lambda x: x["submitted_at"], reverse=True),
+            "total": len(pending_files)
+        }
+
+        # Get completed files
+        completed_files = []
+        for file_path in user_dir.glob("*_completed.csv"):
+            with open(file_path, 'r') as f:
+                df = pd.read_csv(f, nrows=5)
+                sample_predictions = df.to_dict('records')
+            
+            completed_files.append({
+                "file_id": file_path.stem.replace("_completed", ""),
+                "filename": file_path.name,
+                "completed_at": datetime.fromtimestamp(file_path.stat().st_mtime).isoformat(),
+                "sample_predictions": sample_predictions
+            })
+        response_data["completed_files"] = {
+            "files": sorted(completed_files, key=lambda x: x["completed_at"], reverse=True),
+            "total": len(completed_files)
+        }
+
+        return jsonify(response_data), 200
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
