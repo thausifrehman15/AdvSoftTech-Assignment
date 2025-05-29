@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 4,
+            "activePatchIndex": 5,
             "patches": [
                 {
                     "date": 1747826473047,
@@ -24,6 +24,10 @@
                 {
                     "date": 1747830760980,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -10,17 +10,15 @@\n   {\r\n     path: 'single',\r\n     component: DashboardComponent,\r\n     data: {\r\n-      title: 'Single Line Prediction',\r\n       activeTab: 'single'\r\n     }\r\n   },\r\n   {\r\n     path: 'bulk',\r\n     component: DashboardComponent,\r\n     data: {\r\n-      title: 'Bulk Prediction',\r\n       activeTab: 'bulk'\r\n     }\r\n   }\r\n ];\n\\ No newline at end of file\n"
+                },
+                {
+                    "date": 1748378744773,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,24 +1,28 @@\n import { Routes } from '@angular/router';\r\n+import { SinglePredictionComponent } from './single-prediction/single-prediction.component';\r\n+import { BulkPredictionComponent } from './bulk-prediction/bulk-prediction.component';\r\n import { DashboardComponent } from './dashboard.component';\r\n \r\n-export const routes: Routes = [\r\n+export const DASHBOARD_ROUTES: Routes = [\r\n   {\r\n     path: '',\r\n-    redirectTo: 'single',\r\n-    pathMatch: 'full'\r\n-  },\r\n-  {\r\n-    path: 'single',\r\n     component: DashboardComponent,\r\n-    data: {\r\n-      activeTab: 'single'\r\n-    }\r\n-  },\r\n-  {\r\n-    path: 'bulk',\r\n-    component: DashboardComponent,\r\n-    data: {\r\n-      activeTab: 'bulk'\r\n\\ No newline at end of file\n-    }\r\n+    children: [\r\n+      {\r\n+        path: '',\r\n+        redirectTo: 'single',\r\n+        pathMatch: 'full'\r\n+      },\r\n+      {\r\n+        path: 'single',\r\n+        component: SinglePredictionComponent,\r\n+        data: { activeTab: 'single' }\r\n+      },\r\n+      {\r\n+        path: 'bulk',\r\n+        component: BulkPredictionComponent,\r\n+        data: { activeTab: 'bulk' }\r\n+      }\r\n+    ]\r\n   }\r\n-];\n+];\r\n"
                 }
             ],
             "date": 1747826473047,

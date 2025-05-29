@@ -3,7 +3,7 @@
     "activeCommit": 0,
     "commits": [
         {
-            "activePatchIndex": 4,
+            "activePatchIndex": 6,
             "patches": [
                 {
                     "date": 1747835776906,
@@ -24,6 +24,14 @@
                 {
                     "date": 1747836030659,
                     "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,33 +1,12 @@\n import { Routes } from '@angular/router';\r\n+\r\n export const routes: Routes = [\r\n   {\r\n     path: '',\r\n-    redirectTo: 'single',\r\n-    pathMatch: 'full'\r\n-  },\r\n-  {\r\n-    path: 'single',\r\n     loadComponent: () => import('./dashboard.component').then(m => m.DashboardComponent),\r\n     data: {\r\n-      title: $localize`Single Line Prediction`,\r\n-      breadcrumb: {\r\n-        label: 'Single Line Prediction',\r\n-        parent: 'Dashboard'\r\n-      },\r\n-      activeTab: 'single'\r\n+      title: $localize`Dashboard`\r\n     }\r\n-  },\r\n-  {\r\n-    path: 'bulk',\r\n-    loadComponent: () => import('./dashboard.component').then(m => m.DashboardComponent),\r\n-    data: {\r\n-      title: $localize`Bulk Prediction`,\r\n-      breadcrumb: {\r\n-        label: 'Bulk Prediction',\r\n-        parent: 'Dashboard'\r\n-      },\r\n+  }\r\n+];\r\n \r\n\\ No newline at end of file\n-      activeTab: 'bulk'\r\n-    }\r\n-  }\r\n-];\n"
+                },
+                {
+                    "date": 1748379065910,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,11 +1,26 @@\n import { Routes } from '@angular/router';\r\n+import { SinglePredictionComponent } from './single-prediction/single-prediction.component';\r\n+import { BulkPredictionComponent } from './bulk-prediction/bulk-prediction.component';\r\n+import { DashboardComponent } from './dashboard.component';\r\n \r\n-export const routes: Routes = [\r\n+export default [\r\n   {\r\n     path: '',\r\n-    loadComponent: () => import('./dashboard.component').then(m => m.DashboardComponent),\r\n-    data: {\r\n-      title: $localize`Dashboard`\r\n-    }\r\n-  }\r\n-];\r\n+    component: DashboardComponent,\r\n+    children: [\r\n+      {\r\n+        path: '',\r\n+        redirectTo: 'single',\r\n+        pathMatch: 'full',\r\n+      },\r\n+      {\r\n+        path: 'single',\r\n+        component: SinglePredictionComponent,\r\n+      },\r\n+      {\r\n+        path: 'bulk',\r\n+        component: BulkPredictionComponent,\r\n+      },\r\n+    ],\r\n+  },\r\n+] as Routes;\r\n"
+                },
+                {
+                    "date": 1748379110960,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -2,9 +2,9 @@\n import { SinglePredictionComponent } from './single-prediction/single-prediction.component';\r\n import { BulkPredictionComponent } from './bulk-prediction/bulk-prediction.component';\r\n import { DashboardComponent } from './dashboard.component';\r\n \r\n-export default [\r\n+export const routes: Routes = [\r\n   {\r\n     path: '',\r\n     component: DashboardComponent,\r\n     children: [\r\n"
                 }
             ],
             "date": 1747835776906,

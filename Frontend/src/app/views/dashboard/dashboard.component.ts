@@ -37,17 +37,7 @@ import { PredictionService } from './prediction.service';
 import { SubscriptionService } from '../../services/subscription.service';
 import { filter, interval, Subscription, takeWhile } from 'rxjs';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
-import { PredictionResponse } from './prediction.interface';
-
-interface CsvFile {
-  id: string;
-  name: string;
-  data: any[];
-  chartData?: ChartData;
-  isDefault?: boolean;
-  status: string;
-  timestamp: Date; 
-}
+import { FilesResponse, FilesResponseWithChart, PredictionHistoryResponse, UserDataResponse, UserDataResponseWithChart } from './prediction.interface';
 
 @Component({
   selector: 'app-dashboard',
@@ -78,10 +68,9 @@ interface CsvFile {
     FormLabelDirective,
     FormControlDirective,
     ButtonDirective,
-    AlertComponent
+    AlertComponent,
   ],
 })
-
 export class DashboardComponent implements OnInit {
   private _cachedChartData: ChartData | null = null;
   private _lastPredictionTimeStamp: Date = new Date(); // Initialize with current date
@@ -94,7 +83,7 @@ export class DashboardComponent implements OnInit {
   public mainChartRef: WritableSignal<any> = signal(undefined);
   public chart: Array<IChartProps> = [];
   public fileSearchQuery: string = '';
-  public filteredFiles: CsvFile[] = [];
+  public filteredFiles: FilesResponse[] = [];
   public pageSize: number = 10;
   public currentPage: number = 0;
   public Math = Math; // Make Math available to the template
@@ -103,8 +92,11 @@ export class DashboardComponent implements OnInit {
   public historyCurrentPage: number = 0;
   public selectedCategories: any[] = [];
   public showCategoryModal: boolean = false;
+  public isLoadingPageData: boolean = false;
+  public currentFileData: any[] = [];
+  public currentFilePagination: any = null;
 
-  public lastSinglePrediction: PredictionResponse | null = null;
+  public lastSinglePrediction: PredictionHistoryResponse | null = null;
   // Pie chart options
   public pieChartOptions: ChartOptions = {
     maintainAspectRatio: false,
@@ -119,11 +111,11 @@ export class DashboardComponent implements OnInit {
     maintainAspectRatio: false,
   };
 
-
   // Add this inside your component class
-  public pendingFiles: { id: string; name: string; timestamp: Date }[] = [];
-  public myFiles: CsvFile[] = []; // This will store user's completed files
-  public singlePredictionHistory: PredictionResponse[] = [];
+  public pendingFiles: FilesResponse[] = [];
+  public myFiles: FilesResponseWithChart[] = [];
+  public csvFiles: FilesResponseWithChart[] = [];
+  public singlePredictionHistory: PredictionHistoryResponse[] = [];
   public isLoadingFile: boolean = false;
   public disableOtherMyFiles: boolean = false;
   public chartInitializationDelay = 1500; // Increased delay for chart initialization
@@ -131,12 +123,12 @@ export class DashboardComponent implements OnInit {
   public chartKey: string = ''; // Add this to force chart recreation
 
   constructor(
-  private http: HttpClient,
-  private predictionService: PredictionService,
-  private subscriptionService: SubscriptionService, // Add this
-  private cdr: ChangeDetectorRef,
-  private route: ActivatedRoute,
-  private router: Router
+    private http: HttpClient,
+    private predictionService: PredictionService,
+    private subscriptionService: SubscriptionService, // Add this
+    private cdr: ChangeDetectorRef,
+    private route: ActivatedRoute,
+    private router: Router
   ) {}
 
   private resetLoadingState(): void {
@@ -147,9 +139,23 @@ export class DashboardComponent implements OnInit {
   }
 
   get totalPages(): number {
-    return this.currentCsvFile
-      ? Math.ceil(this.currentCsvFile.data.length / this.pageSize)
-      : 0;
+    if (this.activeTab === 'bulk') {
+      const totalItems = this.currentCsvFile?.data?.length || 0;
+      return Math.ceil(totalItems / this.pageSize);
+    }
+
+    // For history pagination
+    return Math.ceil(
+      this.singlePredictionHistory.length / this.historyPageSize
+    );
+  }
+
+  changePage(page: number, target: 'bulk' | 'history'): void {
+    if (target === 'bulk') {
+      this.currentPage = page;
+    } else {
+      this.historyCurrentPage = page;
+    }
   }
 
   public singlePredictionForm = new FormGroup({
@@ -166,15 +172,13 @@ export class DashboardComponent implements OnInit {
     fileName: new FormControl(''),
   });
 
-  public csvFiles: CsvFile[] = []
-
   chartRadarData: ChartData = {
     labels: [
-      'Very Positive',
+      'Positive',
       'Slightly Positive',
       'Neutral',
       'Slightly Negative',
-      'Very Negative'
+      'Negative',
     ],
     datasets: [
       {
@@ -196,66 +200,73 @@ export class DashboardComponent implements OnInit {
         pointHoverBackgroundColor: '#fff',
         pointHoverBorderColor: 'rgba(255, 99, 132, 1)',
         data: [50, 50, 50, 50, 50],
-      }
+      },
     ],
   };
 
   ngOnInit(): void {
     // 1. Get the initial activeTab from route data
-    this.route.data.subscribe(data => {
+    this.route.data.subscribe((data) => {
       if (data['activeTab']) {
         this.activeTab = data['activeTab'];
         console.log('Active tab from route data:', this.activeTab);
       }
     });
-    
+
     // 2. Update activeTab on URL changes without full reload
-    this.router.events.pipe(
-      filter(event => event instanceof NavigationEnd)
-    ).subscribe(() => {
-      const url = this.router.url;
-      
-      if (url.includes('/dashboard/bulk')) {
-        this.activeTab = 'bulk';
-      } else if (url.includes('/dashboard/single')) {
-        this.activeTab = 'single';
-      }
-      
-      // Force change detection to update UI without full reload
-      this.cdr.detectChanges();
-    });
+    this.router.events
+      .pipe(filter((event) => event instanceof NavigationEnd))
+      .subscribe(() => {
+        const url = this.router.url;
 
-    this.predictionService.getUserData().subscribe({
-      next: (userData) => {
-        this.singlePredictionHistory = userData.predictionHistory;
-        this.pendingFiles = userData.pendingFiles;
-        this.myFiles = userData.completedFiles;
-        this.filteredFiles = this.myFiles;
-
-        // Set active CSV file if any exist
-        if (this.csvFiles.length > 0) {
-          this.activeCsvFile = this.csvFiles[0].id;
+        if (url.includes('/dashboard/bulk')) {
+          this.activeTab = 'bulk';
+        } else if (url.includes('/dashboard/single')) {
+          this.activeTab = 'single';
         }
 
-        // Set initial data for single prediction display
+        // Force change detection to update UI without full reload
+        this.cdr.detectChanges();
+      });
+
+    // Get user ID for API calls
+    const userId =
+      localStorage.getItem('userId') ||
+      this.extractUserIdFromToken() ||
+      'default-user-id';
+
+    this.subscriptionService.checkBackendSubscriptionStatus();
+
+    this.predictionService.getUserData(userId).subscribe({
+      next: (userData: UserDataResponseWithChart) => {
+        console.log('Received user data:', userData);
+
+        // Set prediction history
+        this.singlePredictionHistory = userData.predictionHistory || [];
+
+        // Set initial prediction for display
         if (this.singlePredictionHistory.length > 0) {
           this.lastSinglePrediction = { ...this.singlePredictionHistory[0] };
           this.selectedHistoryItem = this.singlePredictionHistory[0];
         }
+
+        // Set pending and completed files with chart data
+        this.pendingFiles = userData.pendingFiles || [];
+        this.myFiles = userData.completedFiles || [];
+        this.filteredFiles = this.myFiles;
+
+        // Start periodic checking
+        this.startPeriodicFileCheck();
+
+        console.log('Processed data:', {
+          predictionHistory: this.singlePredictionHistory.length,
+          pendingFiles: this.pendingFiles.length,
+          completedFiles: this.myFiles.length,
+        });
       },
       error: (error) => {
         console.error('Error loading user data:', error);
-        // Fallback to sample data if API fails
-        this.csvFiles = SAMPLE_CSV_FILES;
-        this.singlePredictionHistory = SAMPLE_PREDICTION_HISTORY;
-        this.pendingFiles = SAMPLE_PENDING_FILES;
-        this.myFiles = SAMPLE_MY_FILES;
-        this.filteredFiles = this.myFiles;
-
-        if (this.singlePredictionHistory.length > 0) {
-          this.lastSinglePrediction = { ...this.singlePredictionHistory[0] };
-          this.selectedHistoryItem = this.singlePredictionHistory[0];
-        }
+        // Handle error...
       },
     });
   }
@@ -317,9 +328,9 @@ export class DashboardComponent implements OnInit {
     this.isChartReady = false;
 
     this.activeCsvFile = fileId;
-    this.currentPage = 0;
+    this.currentPage = 0; // Reset pagination when switching files
     this.chartKey = `${fileId}-${Date.now()}`; // Force chart recreation
-    
+
     // Force change detection
     this.cdr.detectChanges();
 
@@ -332,8 +343,15 @@ export class DashboardComponent implements OnInit {
     }, 600);
   }
 
-  get currentCsvFile(): CsvFile | undefined {
-    return this.csvFiles.find((file) => file.id === this.activeCsvFile);
+  get currentCsvFile(): FilesResponseWithChart {
+    return (
+      this.csvFiles.find((file) => file.id === this.activeCsvFile) || {
+        id: '',
+        name: '',
+        timestamp: new Date(),
+        data: [], // Ensure data is always an array, never undefined
+      }
+    );
   }
 
   predictSingleText(): void {
@@ -341,46 +359,61 @@ export class DashboardComponent implements OnInit {
     if (!textValue || textValue.trim() === '') {
       return;
     }
-    
+
     this.isProcessingSinglePrediction = true;
 
     this.predictionService.predictText(textValue).subscribe({
       next: (response) => {
         try {
-          // Handle both array and object formats for sentiment_scores
-          let categories: {name: string, value: number}[] = [];
-          
+          // Handle sentiment_scores array format
+          let categories: { name: string; value: number }[] = [];
+
           if (Array.isArray(response.sentiment_scores)) {
-            // If sentiment_scores is already an array
-            categories = response.sentiment_scores.map(score => ({
-              name: score.name === 'neutral' ? 'Neutral' : score.name,
-              value: typeof score.value === 'number' ? score.value : 
-                    Number((Number(score.value) * 100).toFixed(2))
-            }));
-          } else if (response.sentiment_scores && typeof response.sentiment_scores === 'object') {
-            // If sentiment_scores is an object
+            categories = response.sentiment_scores.map((score) => {
+              // Normalize the name (handle lowercase "neutral")
+              let normalizedName = score.name;
+              if (score.name.toLowerCase() === 'neutral') {
+                normalizedName = 'Neutral';
+              }
+
+              // Convert decimal to percentage if value is less than or equal to 1
+              let normalizedValue = score.value;
+              if (normalizedValue <= 1) {
+                normalizedValue = Number((normalizedValue * 100).toFixed(2));
+              }
+
+              return {
+                name: normalizedName,
+                value: normalizedValue,
+              };
+            });
+          } else if (
+            response.sentiment_scores &&
+            typeof response.sentiment_scores === 'object'
+          ) {
+            // Handle object format (backup)
             categories = Object.entries(response.sentiment_scores).map(
               ([name, value]) => ({
-                name: name === 'neutral' ? 'Neutral' : name,
-                value: Number((Number(value) * 100).toFixed(2)),
+                name: name.toLowerCase() === 'neutral' ? 'Neutral' : name,
+                value:
+                  Number(value) <= 1
+                    ? Number((Number(value) * 100).toFixed(2))
+                    : Number(value),
               })
             );
           }
 
-          // Calculate confidence (highest score)
-          let confidence = 0;
-          if (response.final_prediction) {
-            // Find the category matching the final prediction
-            const matchingCategory = categories.find(
-              c => c.name.toLowerCase() === response.final_prediction?.toLowerCase()
-            );
-            
-            if (matchingCategory) {
-              confidence = matchingCategory.value;
-            } else if (categories.length > 0) {
-              // If no match found, use highest score
-              confidence = Math.max(...categories.map(c => c.value));
-            }
+          // Use the confidence from the response, or calculate from highest sentiment score
+          let confidence = response.confidence || 0;
+
+          // If confidence is in decimal format, convert to percentage
+          if (confidence <= 1) {
+            confidence = Number((confidence * 100).toFixed(2));
+          }
+
+          // If no confidence provided, use highest sentiment score
+          if (!confidence && categories.length > 0) {
+            confidence = Math.max(...categories.map((c) => c.value));
           }
 
           const prediction = {
@@ -391,44 +424,105 @@ export class DashboardComponent implements OnInit {
             timestamp: new Date(),
           };
 
-          // Save prediction to history
+          console.log('Processed prediction:', prediction);
+
+          // Save prediction to history via API
           this.predictionService.savePredictionToHistory(prediction);
-          
-          // // Update UI immediately without calling getUserData again
-          // if (Array.isArray(this.singlePredictionHistory)) {
-          //   this.singlePredictionHistory.unshift(prediction);
-          // } else {
-          //   this.singlePredictionHistory = [prediction];
-          // }
-          
-          this.lastSinglePrediction = prediction;
-          this.selectedHistoryItem = prediction;
-          this.historyCurrentPage = 0;
-          this._cachedChartData = null;
-          this.singlePredictionForm.reset();
+
+          // Get user ID from localStorage or token
+          const userId =
+            localStorage.getItem('userId') ||
+            this.extractUserIdFromToken() ||
+            'default-user-id';
+
+          // Fetch updated prediction history from API
+          this.predictionService.getPredictionHistory(userId).subscribe({
+            next: (historyResponse) => {
+              console.log('Updated history response:', historyResponse);
+
+              // Update prediction history with API response
+              if (historyResponse && historyResponse.predictions) {
+                this.singlePredictionHistory = historyResponse.predictions;
+              }
+
+              // Set the latest prediction for display
+              if (this.singlePredictionHistory.length > 0) {
+                this.lastSinglePrediction = this.singlePredictionHistory[0];
+                this.selectedHistoryItem = this.singlePredictionHistory[0];
+              }
+
+              this.historyCurrentPage = 0;
+              this._cachedChartData = null;
+              this.singlePredictionForm.reset();
+
+              // Force change detection to update UI
+              this.cdr.detectChanges();
+            },
+            error: (historyError) => {
+              console.error(
+                'Error fetching updated prediction history:',
+                historyError
+              );
+
+              // Fallback: add prediction to local history if API call fails
+              this.singlePredictionHistory.unshift(prediction);
+              this.lastSinglePrediction = prediction;
+              this.selectedHistoryItem = prediction;
+              this.historyCurrentPage = 0;
+              this._cachedChartData = null;
+              this.singlePredictionForm.reset();
+              this.cdr.detectChanges();
+
+              alert(
+                'Prediction saved, but failed to refresh history. Please refresh the page to see updated history.'
+              );
+            },
+          });
         } catch (err) {
           console.error('Error processing prediction result:', err);
           alert('Failed to process prediction result. Please try again.');
-        } finally {
           this.isProcessingSinglePrediction = false;
         }
       },
       error: (error) => {
         console.error('[DEBUG] Error in predictSingleText:', error);
         this.isProcessingSinglePrediction = false;
-        
+
         // More user-friendly error message
         if (error.status === 0) {
-          alert('Network error. Please check your internet connection and try again.');
+          alert(
+            'Network error. Please check your internet connection and try again.'
+          );
         } else if (error.status === 429) {
           alert('Too many requests. Please wait a moment and try again.');
         } else {
-          alert(`Failed to process prediction: ${error.message || 'Unknown error'}`);
+          alert(
+            `Failed to process prediction: ${error.message || 'Unknown error'}`
+          );
         }
-      }
+      },
+      complete: () => {
+        // Ensure loading state is reset regardless of success/error
+        this.isProcessingSinglePrediction = false;
+      },
     });
   }
-  
+
+  // Helper method to extract user ID from JWT token
+  private extractUserIdFromToken(): string | null {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) return null;
+
+      // Simple JWT decode (you might want to use a proper JWT library)
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.user_id || payload.id || null;
+    } catch (error) {
+      console.error('Error extracting user ID from token:', error);
+      return null;
+    }
+  }
+
   /**
    * Removes a CSV file from the visualization
    * @param fileId The ID of the file to remove
@@ -479,7 +573,6 @@ export class DashboardComponent implements OnInit {
     this.predictionService.uploadCsvForPrediction(file).subscribe({
       next: (response) => {
         if (!response) {
-          // Handle null response
           alert('Failed to upload file. Please try again.');
           return;
         }
@@ -489,7 +582,6 @@ export class DashboardComponent implements OnInit {
           (pf) => pf.id === response.fileId
         );
         if (existingPendingFileIndex === -1) {
-          // Only add to pending files if it's not already there
           this.pendingFiles.push({
             id: response.fileId,
             name: response.name || file.name,
@@ -500,7 +592,7 @@ export class DashboardComponent implements OnInit {
         // Reset form
         this.fileUploadForm.reset();
 
-        // Start polling for status updates
+        // Start polling for this specific file
         this.pollFileStatus(response.fileId);
       },
       error: (error) => {
@@ -522,24 +614,9 @@ export class DashboardComponent implements OnInit {
     );
 
     if (existingFileIndex !== -1) {
-      // File already exists in tabs, just activate it with proper loading state
-      this.isLoadingFile = true;
-      this.disableOtherMyFiles = true;
-      this.isChartReady = false;
-      
-      // Set the active file and update chart key
       this.activeCsvFile = fileId;
       this.currentPage = 0;
-      this.chartKey = `${fileId}-${Date.now()}`; // Force chart recreation
-      
-      // Wait for chart to properly initialize even for existing files
-      setTimeout(() => {
-        this.isLoadingFile = false;
-        this.disableOtherMyFiles = false;
-        this.isChartReady = true;
-        this.cdr.detectChanges();
-      }, 800); // Shorter delay for existing files
-      
+      this.chartKey = `${fileId}-${Date.now()}`;
       return;
     }
 
@@ -548,40 +625,43 @@ export class DashboardComponent implements OnInit {
     this.disableOtherMyFiles = true;
     this.isChartReady = false;
 
-    // Otherwise, fetch file details from API
-    this.predictionService.getFileDetails(fileId).subscribe({
+    // Get user ID for API call
+    const userId =
+      localStorage.getItem('userId') ||
+      this.extractUserIdFromToken() ||
+      'default-user-id';
+
+    this.predictionService.getFileDetails(userId, fileId).subscribe({
       next: (fileDetails) => {
         try {
-          // Create chart data from the file details
-          const chartData = this.generateChartDataFromApiResponse(fileDetails);
+          console.log('Received file details:', fileDetails);
 
-          // Add to visualization tabs
-          const newFile: CsvFile = {
-            id: fileId,
-            name: fileDetails.name,
-            status: 'completed',
-            timestamp: new Date(fileDetails.timestamp),
-            isDefault: false,
-            data: fileDetails.data || [],
+          // Transform the data to match expected format
+          const transformedData = this.transformFileDetailsData(fileDetails);
+
+          // Create chart data from the transformed data
+          const chartData = this.generateChartDataFromFileDetails(fileDetails);
+
+          const newFile: FilesResponseWithChart = {
+            id: fileDetails.file_id || fileId,
+            name: this.cleanFileName(fileDetails.filename || `File ${fileId}`),
+            timestamp: new Date(),
+            data: transformedData,
             chartData: chartData,
           };
 
           this.csvFiles.push(newFile);
           this.activeCsvFile = fileId;
           this.currentPage = 0;
-          this.chartKey = `${fileId}-${Date.now()}`; // Force chart recreation
+          this.chartKey = `${fileId}-${Date.now()}`;
 
-          // Force change detection first
-          this.cdr.detectChanges();
-
-          // Wait longer for chart to fully initialize for new files
+          // Reset loading state after successful load
           setTimeout(() => {
             this.isLoadingFile = false;
             this.disableOtherMyFiles = false;
             this.isChartReady = true;
             this.cdr.detectChanges();
-          }, this.chartInitializationDelay);
-
+          }, 800);
         } catch (error) {
           console.error('Error processing file details:', error);
           this.resetLoadingState();
@@ -596,16 +676,46 @@ export class DashboardComponent implements OnInit {
     });
   }
 
+  /**
+   * Transform API file details data to match frontend format
+   */
+  private transformFileDetailsData(fileDetails: any): any[] {
+    if (!fileDetails || !fileDetails.data || !Array.isArray(fileDetails.data)) {
+      return [];
+    }
+
+    return fileDetails.data.map((row: any) => ({
+      text: row.text,
+      final_prediction: row.final_prediction,
+      confidence: Math.round((row.confidence || 0) * 100), // Convert to percentage
+      sentiment_scores: [
+        { name: 'Negative', value: Math.round((row.Negative || 0) * 100) },
+        {
+          name: 'Slightly Negative',
+          value: Math.round((row['Slightly Negative'] || 0) * 100),
+        },
+        { name: 'Neutral', value: Math.round((row.neutral || 0) * 100) },
+        {
+          name: 'Slightly Positive',
+          value: Math.round((row['Slightly Positive'] || 0) * 100),
+        },
+        { name: 'Positive', value: Math.round((row.Positive || 0) * 100) },
+      ],
+    }));
+  }
+
   // Chart data for single prediction
   get singlePredictionChartData(): ChartData {
     if (!this.lastSinglePrediction) {
-      // Return a valid empty chart structure 
-      return { 
-        labels: [], 
-        datasets: [{
-          data: [],
-          backgroundColor: []
-        }]
+      // Return a valid empty chart structure
+      return {
+        labels: [],
+        datasets: [
+          {
+            data: [],
+            backgroundColor: [],
+          },
+        ],
       };
     }
 
@@ -619,10 +729,13 @@ export class DashboardComponent implements OnInit {
 
     // Generate new chart data
     const chartData: ChartData = {
-      labels: this.lastSinglePrediction?.sentiment_scores?.map((c) => c.name) || [],
+      labels:
+        this.lastSinglePrediction?.sentiment_scores?.map((c) => c.name) || [],
       datasets: [
         {
-          data: this.lastSinglePrediction?.sentiment_scores?.map((c) => c.value) || [],
+          data:
+            this.lastSinglePrediction?.sentiment_scores?.map((c) => c.value) ||
+            [],
           backgroundColor: [
             'rgba(25, 135, 84, 0.8)', // Very Positive - green
             'rgba(13, 202, 240, 0.8)', // Slightly Positive - info blue
@@ -637,28 +750,34 @@ export class DashboardComponent implements OnInit {
 
     // Cache the data and timestamp
     this._cachedChartData = chartData;
-    this._lastPredictionTimeStamp = this.lastSinglePrediction.timestamp || new Date();
+    this._lastPredictionTimeStamp =
+      this.lastSinglePrediction.timestamp || new Date();
 
     return chartData;
   }
 
   getPaginatedData(
-    dataArray: any[],
+    dataArray: any[] | undefined,
     currentPage: number,
     pageSize: number
   ): any[] {
+    // Always use client-side pagination for both tabs
     if (!dataArray || !dataArray.length) return [];
     const start = currentPage * pageSize;
     const end = start + pageSize;
     return dataArray.slice(start, end);
   }
 
+  get totalItems(): number {
+    if (this.activeTab === 'bulk') {
+      return this.currentCsvFile?.data?.length || 0;
+    }
+
+    return this.singlePredictionHistory?.length || 0;
+  }
+
   // Common method to get visible page numbers
-  getVisiblePageNumbers(
-    totalItems: number,
-    pageSize: number,
-    currentPage: number
-  ): number[] {
+  getVisiblePageNumbers(totalItems: number,pageSize: number,currentPage: number): number[] {
     const totalPages = Math.ceil(totalItems / pageSize);
     const pages: number[] = [];
 
@@ -695,44 +814,22 @@ export class DashboardComponent implements OnInit {
     return pages;
   }
 
-  // Common method to change page
-  changePage(page: number, target: 'bulk' | 'history'): void {
-    if (target === 'bulk') {
-      const totalPages = this.currentCsvFile
-        ? Math.ceil(this.currentCsvFile.data.length / this.pageSize)
-        : 0;
-
-      if (page >= 0 && page < totalPages) {
-        this.currentPage = page;
-      }
-    } else {
-      const totalPages = Math.ceil(
-        this.singlePredictionHistory.length / this.historyPageSize
-      );
-
-      if (page >= 0 && page < totalPages) {
-        this.historyCurrentPage = page;
-      }
-    }
-  }
-
-  // Common method to handle page size changes
   onPageSizeChange(target: 'bulk' | 'history'): void {
     if (target === 'bulk') {
-      this.currentPage = 0;
+      this.currentPage = 0; // Reset to first page when changing page size
     } else {
-      this.historyCurrentPage = 0;
+      this.historyCurrentPage = 0; // Reset to first page when changing page size
     }
   }
 
   // Helper method to get color for category
   getCategoryColor(categoryName: string): string {
     const colorMap: Record<string, string> = {
-      'Very Negative': 'rgba(220, 53, 69, 0.8)',
+      Negative: 'rgba(220, 53, 69, 0.8)',
       'Slightly Negative': 'rgba(255, 193, 7, 0.8)',
       Neutral: 'rgba(108, 117, 125, 0.8)',
       'Slightly Positive': 'rgba(13, 202, 240, 0.8)',
-      'Very Positive': 'rgba(25, 135, 84, 0.8)',
+      Positive: 'rgba(25, 135, 84, 0.8)',
     };
 
     return colorMap[categoryName] || 'gray';
@@ -759,13 +856,35 @@ export class DashboardComponent implements OnInit {
     let completedOrError = false;
 
     // Start new polling subscription
-    const subscription = interval(2000)
+    const subscription = interval(3000) // Poll every 3 seconds
       .pipe(takeWhile(() => !completedOrError))
       .subscribe({
         next: () => {
-          this.predictionService.checkFileStatus(fileId).subscribe({
-            next: (status) => {
-              if (status.status === 'completed') {
+          // Get user ID for getUserData call
+          const userId =
+            localStorage.getItem('userId') ||
+            this.extractUserIdFromToken() ||
+            'default-user-id';
+
+          this.predictionService.getUserData(userId).subscribe({
+            next: (userData) => {
+              // Check if file is still in pending files
+              const pendingFile = userData.pendingFiles.find(
+                (file) => file.id === fileId
+              );
+
+              if (pendingFile) {
+                // File is still pending, continue polling
+                console.log(`File ${fileId} still pending...`);
+                return;
+              }
+
+              // Check if file is now in completed files
+              const completedFile = userData.completedFiles.find(
+                (file) => file.id === fileId
+              );
+
+              if (completedFile) {
                 // File is now completed
                 completedOrError = true;
 
@@ -774,27 +893,37 @@ export class DashboardComponent implements OnInit {
                   (file) => file.id !== fileId
                 );
 
-                // Refresh the files list to get the new completed file
-                this.refreshFilesList();
+                // Add to completed files if not already there
+                const existingCompleted = this.myFiles.find(
+                  (file) => file.id === fileId
+                );
+                if (!existingCompleted) {
+                  this.myFiles.push({
+                    id: completedFile.id,
+                    name: completedFile.name,
+                    timestamp: new Date(completedFile.timestamp),
+                    data: [], 
+                  });
+                  this.filterFiles(); // Update filtered files
+                }
 
                 // Clean up the subscription
                 if (this.fileStatusSubscriptions.has(fileId)) {
                   this.fileStatusSubscriptions.get(fileId)?.unsubscribe();
                   this.fileStatusSubscriptions.delete(fileId);
                 }
-              } else if (status.status === 'error') {
-                // Handle error state
+
+                console.log(
+                  `File ${fileId} completed and moved to completed files`
+                );
+              } else {
+                // File not found in either pending or completed - assume error
                 completedOrError = true;
                 this.pendingFiles = this.pendingFiles.filter(
                   (file) => file.id !== fileId
                 );
 
-                // Use safe access for the message property since it might not exist
-                alert(
-                  `Processing of file failed: ${
-                    (status as any).message || 'Unknown error'
-                  }`
-                );
+                alert(`Processing of file failed: File not found`);
 
                 // Clean up the subscription
                 if (this.fileStatusSubscriptions.has(fileId)) {
@@ -802,10 +931,12 @@ export class DashboardComponent implements OnInit {
                   this.fileStatusSubscriptions.delete(fileId);
                 }
               }
-              // For 'pending' status, we just keep polling
             },
             error: (error) => {
-              console.error('Error checking file status:', error);
+              console.error(
+                'Error checking file status via getUserData:',
+                error
+              );
               completedOrError = true; // Stop polling on error
 
               // Clean up the subscription
@@ -820,6 +951,21 @@ export class DashboardComponent implements OnInit {
 
     // Store the subscription
     this.fileStatusSubscriptions.set(fileId, subscription);
+  }
+
+  private startPeriodicFileCheck(): void {
+    // Check every 30 seconds for any pending files that need polling
+    interval(30000).subscribe(() => {
+      if (this.pendingFiles.length > 0) {
+        // Check if we have active subscriptions for all pending files
+        this.pendingFiles.forEach((file) => {
+          if (!this.fileStatusSubscriptions.has(file.id)) {
+            console.log(`Starting polling for file: ${file.id}`);
+            this.pollFileStatus(file.id);
+          }
+        });
+      }
+    });
   }
 
   refreshFilesList(): void {
@@ -882,27 +1028,115 @@ export class DashboardComponent implements OnInit {
     });
   }
 
+  /**
+   * Generate chart data from file details API response
+   */
+  private generateChartDataFromFileDetails(fileDetails: any): ChartData {
+    if (!fileDetails || !fileDetails.data || !Array.isArray(fileDetails.data)) {
+      return {
+        labels: [],
+        datasets: [
+          {
+            label: 'No Data Available',
+            data: [],
+            backgroundColor: [],
+          },
+        ],
+      };
+    }
+
+    // Count predictions by category
+    const sentimentCounts: Record<string, number> = {
+      Negative: 0,
+      'Slightly Negative': 0,
+      Neutral: 0,
+      'Slightly Positive': 0,
+      Positive: 0,
+    };
+
+    // Aggregate sentiment scores
+    const sentimentTotals: Record<string, number> = {
+      Negative: 0,
+      'Slightly Negative': 0,
+      Neutral: 0,
+      'Slightly Positive': 0,
+      Positive: 0,
+    };
+
+    fileDetails.data.forEach((row: any) => {
+      // Count final predictions
+      const prediction = row.final_prediction;
+      if (prediction && sentimentCounts.hasOwnProperty(prediction)) {
+        sentimentCounts[prediction]++;
+      }
+
+      // Sum sentiment scores for average calculation
+      sentimentTotals['Negative'] += row.Negative || 0;
+      sentimentTotals['Slightly Negative'] += row['Slightly Negative'] || 0;
+      sentimentTotals['Neutral'] += row.neutral || 0;
+      sentimentTotals['Slightly Positive'] += row['Slightly Positive'] || 0;
+      sentimentTotals['Positive'] += row.Positive || 0;
+    });
+
+    // Calculate averages (convert from decimal to percentage)
+    const dataCount = fileDetails.data.length;
+    const averageScores = Object.keys(sentimentTotals).map((key) =>
+      Math.round((sentimentTotals[key] / dataCount) * 100)
+    );
+
+    return {
+      labels: Object.keys(sentimentCounts),
+      datasets: [
+        {
+          label: 'Average Sentiment Distribution',
+          data: averageScores,
+          backgroundColor: [
+            'rgba(220, 53, 69, 0.8)', // Negative - red
+            'rgba(255, 193, 7, 0.8)', // Slightly Negative - amber
+            'rgba(108, 117, 125, 0.8)', // Neutral - gray
+            'rgba(13, 202, 240, 0.8)', // Slightly Positive - info blue
+            'rgba(25, 135, 84, 0.8)', // Positive - green
+          ],
+          borderColor: 'rgba(179,181,198,1)',
+          borderWidth: 1,
+        },
+      ],
+    };
+  }
+
+  /**
+   * Clean filename for display
+   */
+  public cleanFileName(filename: string): string {
+    return filename
+      .replace(/_completed\.csv$/, '.csv')
+      .replace(/^\d{8}_\d{6}_/, '') // Remove timestamp prefix
+      .replace(/\.csv$/, ''); // Remove .csv extension for display
+  }
+
   generateChartDataFromApiResponse(fileDetails: any): ChartData {
     if (!fileDetails || !fileDetails.data) {
       // Return empty chart data when no details are available
       return {
         labels: [],
-        datasets: [{
-          label: 'No Data Available',
-          backgroundColor: [],
-          borderColor: 'rgba(179,181,198,1)',
-          data: []
-        }]
+        datasets: [
+          {
+            label: 'No Data Available',
+            backgroundColor: [],
+            borderColor: 'rgba(179,181,198,1)',
+            data: [],
+          },
+        ],
       };
     }
 
     // Assuming the API returns data with sentiment categories and counts
     const sentimentCounts: Record<string, number> = {
-      'Very Positive': 0,
+      Positive: 0,
       'Slightly Positive': 0,
       Neutral: 0,
       'Slightly Negative': 0,
-      'Very Negative': 0,
+      Negative: 0,
     };
 
     // Count prediction categories
@@ -950,24 +1184,29 @@ export class DashboardComponent implements OnInit {
 
   navigateToSubscription(): void {
     console.log('Navigating to subscription page...');
-    
+
     // Use the router to navigate programmatically
-    this.router.navigate(['/subscription']).then(success => {
-      // Log whether navigation was successful for debugging
-      console.log('Navigation success:', success);
-      
-      if (!success) {
-        // If navigation fails, try an alternative approach
-        console.error('Navigation failed, trying window.location');
-        window.location.href = '/subscription';
-      }
-    }).catch(err => {
-      console.error('Navigation error:', err);
-    });
+    this.router
+      .navigate(['/subscription'])
+      .then((success) => {
+        // Log whether navigation was successful for debugging
+        console.log('Navigation success:', success);
+
+        if (!success) {
+          // If navigation fails, try an alternative approach
+          console.error('Navigation failed, trying window.location');
+          window.location.href = '/subscription';
+        }
+      })
+      .catch((err) => {
+        console.error('Navigation error:', err);
+      });
   }
-  
+
   get hasBulkAccess(): boolean {
-    return this.subscriptionService.hasBulkAccess();
+    const hasAccess = this.subscriptionService.hasBulkAccess();
+    console.log('Dashboard hasBulkAccess check:', hasAccess);
+    return hasAccess;
   }
 
   switchTab(tab: string): void {
@@ -978,14 +1217,14 @@ export class DashboardComponent implements OnInit {
 
     // Reset chart state when switching tabs
     this.isChartReady = false;
-    
+
     // Always allow switching to the tab, even without access
     this.activeTab = tab;
-    
+
     // Navigate without reloading the component
-    this.router.navigate(['/dashboard', tab], { 
+    this.router.navigate(['/dashboard', tab], {
       skipLocationChange: false,
-      replaceUrl: false
+      replaceUrl: false,
     });
 
     // Reset chart ready state after navigation
@@ -995,17 +1234,46 @@ export class DashboardComponent implements OnInit {
     }, 300);
   }
 
-
   downloadFile(fileId: string): void {
-    this.predictionService.downloadFile(fileId).subscribe({
-      next: (response) => {
-        // Handle successful download
-        console.log('File downloaded successfully:', response);
+    const userId = localStorage.getItem('userId') || 
+                  this.extractUserIdFromToken() || 
+                  'default-user-id';
+
+    console.log('Downloading file:', { userId, fileId });
+
+    this.predictionService.downloadFile(userId, fileId).subscribe({
+      next: (blob) => {
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        
+        // Clean the filename for download
+        const cleanedFileId = this.cleanFileName(fileId);
+        link.download = `predictions_${cleanedFileId}.csv`;
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        console.log('File downloaded successfully');
       },
       error: (error) => {
-        // Handle error
         console.error('Error downloading file:', error);
-      }
+        
+        // Show more detailed error message
+        let errorMessage = 'Failed to download file. ';
+        if (error.error && error.error.message) {
+          errorMessage += error.error.message;
+        } else if (error.status === 404) {
+          errorMessage += 'File not found on server.';
+        } else {
+          errorMessage += 'Please try again.';
+        }
+        
+        alert(errorMessage);
+      },
     });
   }
 }

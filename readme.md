@@ -6,5 +6,3 @@ frontend: (get into the directory)
 run these commands
     npm install
     ng serve
-
-END
