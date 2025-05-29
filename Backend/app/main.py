@@ -737,7 +737,38 @@ def download_file(user_id, file_id):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/update-subscription", methods=["POST"])
+def update_subscription():
+    try:
+        data = request.get_json()
+        username = data.get("username")
+        subscribed = data.get("subscribed", False)
 
+        if not username:
+            return jsonify({"error": "Username is required"}), 400
+
+        # Load existing subscriptions
+        try:
+            with open("subscriptions.json", "r") as f:
+                subscriptions = json.load(f)
+        except FileNotFoundError:
+            subscriptions = {}
+
+        # Update subscription status
+        subscriptions[username] = subscribed
+
+        # Save back to file
+        with open("subscriptions.json", "w") as f:
+            json.dump(subscriptions, f, indent=4)
+
+        return jsonify({
+            "success": True,
+            "message": f"Subscription updated for {username}",
+            "subscribed": subscribed
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

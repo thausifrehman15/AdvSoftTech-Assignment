@@ -235,6 +235,8 @@ export class DashboardComponent implements OnInit {
       this.extractUserIdFromToken() ||
       'default-user-id';
 
+    this.subscriptionService.checkBackendSubscriptionStatus();
+
     this.predictionService.getUserData(userId).subscribe({
       next: (userData: UserDataResponseWithChart) => {
         console.log('Received user data:', userData);
@@ -1202,7 +1204,9 @@ export class DashboardComponent implements OnInit {
   }
 
   get hasBulkAccess(): boolean {
-    return this.subscriptionService.hasBulkAccess();
+    const hasAccess = this.subscriptionService.hasBulkAccess();
+    console.log('Dashboard hasBulkAccess check:', hasAccess);
+    return hasAccess;
   }
 
   switchTab(tab: string): void {

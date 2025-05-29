@@ -110,6 +110,14 @@ export class SubscriptionComponent implements OnInit {
     this.subscriptionPlans = this.subscriptionService.getSubscriptionPlans();
     this.currentSubscription = this.subscriptionService.getCurrentSubscription();
     
+    this.subscriptionService.checkBackendSubscriptionStatus();
+    
+    // Update current subscription after backend check
+    setTimeout(() => {
+      this.currentSubscription = this.subscriptionService.getCurrentSubscription();
+      console.log('Updated current subscription:', this.currentSubscription);
+    }, 1000);
+
     // Check if dark mode is active
     this.isDarkMode = document.body.classList.contains('dark-theme');
     

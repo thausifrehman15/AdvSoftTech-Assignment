@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { delay, tap } from 'rxjs/operators';
+import { environment } from '../environment/environment';
+import { HttpClient } from '@angular/common/http';
 
 export interface SubscriptionPlan {
   id: string;
@@ -16,13 +18,49 @@ export interface SubscriptionPlan {
 })
 export class SubscriptionService {
   private currentSubscription = 'free';
+  private backendSubscriptionStatus: boolean = false;
 
-  constructor() {
+  constructor(private http: HttpClient) {
     // Load saved subscription from localStorage
     const savedSubscription = localStorage.getItem('currentSubscription');
     if (savedSubscription) {
       this.currentSubscription = savedSubscription;
     }
+    // Check backend status on initialization
+    this.checkBackendSubscriptionStatus();
+  }
+
+  /**
+   * Check subscription status from backend
+   */
+  checkBackendSubscriptionStatus(): void {
+    const username = localStorage.getItem('username');
+    if (!username) {
+      console.log('No username found, defaulting to free plan');
+      return;
+    }
+
+    const apiUrl = environment.apiUrl;
+    this.http.get(`${apiUrl}/check-subscription?username=${username}`)
+      .subscribe({
+        next: (response: any) => {
+          console.log('Backend subscription check response:', response);
+          this.backendSubscriptionStatus = response.access || false;
+          
+          // Update local subscription based on backend
+          if (this.backendSubscriptionStatus) {
+            this.setSubscription('pro');
+          } else {
+            this.setSubscription('free');
+          }
+        },
+        error: (error) => {
+          console.error('Error checking backend subscription:', error);
+          // Default to free if backend check fails
+          this.backendSubscriptionStatus = false;
+          this.setSubscription('free');
+        }
+      });
   }
 
   getSubscriptionPlans(): SubscriptionPlan[] {
@@ -64,10 +102,28 @@ export class SubscriptionService {
     this.currentSubscription = plan;
     // Save to localStorage for persistence
     localStorage.setItem('currentSubscription', plan);
+    
+    // Update backend status
+    if (plan === 'pro') {
+      this.backendSubscriptionStatus = true;
+      this.updateBackendSubscription(true);
+    } else {
+      this.backendSubscriptionStatus = false;
+      this.updateBackendSubscription(false);
+    }
   }
 
   hasBulkAccess(): boolean {
-    return this.currentSubscription === 'pro';
+    // Check both frontend state and backend status
+    const frontendAccess = this.currentSubscription === 'pro';
+    console.log('Bulk access check:', {
+      frontendSubscription: this.currentSubscription,
+      frontendAccess: frontendAccess,
+      backendStatus: this.backendSubscriptionStatus,
+      finalAccess: frontendAccess && this.backendSubscriptionStatus
+    });
+    
+    return frontendAccess && this.backendSubscriptionStatus;
   }
 
   processPurchase(planId: string, paymentDetails: any): Observable<boolean> {
@@ -79,4 +135,30 @@ export class SubscriptionService {
       })
     );
   }
+
+    /**
+     * Update backend subscription status
+     */
+    private updateBackendSubscription(status: boolean): void {
+      const username = localStorage.getItem('username');
+      if (!username) {
+        console.error('No username found for backend update');
+        return;
+      }
+
+      const apiUrl = environment.apiUrl;
+      this.http.post(`${apiUrl}/update-subscription`, {
+        username: username,
+        subscribed: status
+      }).subscribe({
+        next: (response) => {
+          console.log('Backend subscription updated:', response);
+        },
+        error: (error) => {
+          console.error('Error updating backend subscription:', error);
+        }
+      });
+    }
+
+
 }
