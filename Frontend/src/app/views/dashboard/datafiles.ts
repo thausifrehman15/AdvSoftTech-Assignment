@@ -1,7 +1,7 @@
 import { ChartData } from 'chart.js';
 import { Observable, of, throwError } from 'rxjs';
 import { delay } from 'rxjs/operators';
-import { PredictionResponse } from './prediction.interface';
+import { PredictionHistoryResponse } from './prediction.interface';
 
 /**
  * Sample prediction history data for single prediction view
@@ -559,7 +559,7 @@ let csvFilesData = [...SAMPLE_CSV_FILES];
  * @param text Text to analyze
  * @returns Observable with prediction result
  */
-export function mockPredictText(text: string): PredictionResponse {
+export function mockPredictText(text: string): PredictionHistoryResponse {
   // Simulate API processing time
   // Generate random confidence value between 30 and 95
   const confidence = Math.floor(Math.random() * 65) + 30;

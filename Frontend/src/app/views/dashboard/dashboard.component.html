@@ -211,7 +211,6 @@
                             {{ csvFile.name }}
                             <!-- Delete button -->
                             <button 
-                              *ngIf="!csvFile.isDefault"
                               cButton 
                               color="danger" 
                               size="sm" 
@@ -241,7 +240,7 @@
                           </div>
                           
                           <!-- Only show chart when not loading, chart is ready, and data exists -->
-                          <ng-container *ngIf="!isLoadingFile && isChartReady && currentCsvFile?.chartData">
+                          <ng-container *ngIf="!isLoadingFile && isChartReady">
                             <!-- Use ng-container with ngIf and unique ID to force recreation -->
                             <ng-container *ngIf="chartKey">
                               <div [id]="'chart-container-' + chartKey">
@@ -305,24 +304,24 @@
                                 <tr *ngFor="let row of getPaginatedData(currentCsvFile.data, currentPage, pageSize)">
                                   <!-- Text column -->
                                   <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" 
-                                      [title]="row.text || row.Text">
-                                    {{ row.text || row.Text }}
+                                      [title]="row.text">
+                                    {{ row.text }}
                                   </td>
                                   
                                   <!-- Prediction column -->
                                   <td>
-                                    <span class="badge" [style.background-color]="getCategoryColor(row.final_prediction || row.Prediction)">
-                                      {{ row.final_prediction || row.Prediction }}
+                                    <span class="badge" [style.background-color]="getCategoryColor(row.final_prediction)">
+                                      {{ row.final_prediction }}
                                     </span>
                                   </td>
                                   
                                   <!-- Confidence column -->
-                                  <td>{{ row.confidence || row.Confidence }}%</td>
+                                  <td>{{ row.confidence }}%</td>
                                   
-                                  <!-- Categories/Sentiment Scores column -->
+                                  <!-- Sentiment Scores column -->
                                   <td>
                                     <span class="badge rounded-pill bg-primary" 
-                                          (click)="showCategoriesModal(row.sentiment_scores || row.categories)" 
+                                          (click)="showCategoriesModal(row.sentiment_scores)" 
                                           style="cursor: pointer;">
                                       View Details
                                     </span>
@@ -332,43 +331,42 @@
                             </table>
                           </div> 
                           <!-- Pagination controls -->
-                          <div class="d-flex justify-content-between align-items-center mt-3" *ngIf="!isLoadingPageData">
+                          <div class="d-flex justify-content-between align-items-center mt-3" *ngIf="!isLoadingPageData && currentCsvFile?.data?.length">
                             <div>
                               <small class="text-muted">
-                                <ng-container *ngIf="currentFilePagination">
-                                  Showing {{ (currentFilePagination.currentPage * pageSize) + 1 }} to 
-                                  {{ Math.min((currentFilePagination.currentPage + 1) * pageSize, currentFilePagination.totalItems) }} of 
-                                  {{ currentFilePagination.totalItems }} rows
-                                </ng-container>
+                                Showing {{ (currentPage * pageSize) + 1 }} to 
+                                {{ Math.min((currentPage + 1) * pageSize, currentCsvFile.data.length) }} of 
+                                {{ currentCsvFile.data.length }} rows
                               </small>
                             </div>
-                            <c-pagination aria-label="Data table pages" size="sm" *ngIf="currentFilePagination">
-                              <c-page-item [disabled]="!currentFilePagination.hasPrevious || isLoadingPageData">
-                                <a cPageLink (click)="!isLoadingPageData ? changePage(0, 'bulk') : null" style="cursor: pointer;">First</a>
+                            
+                            <c-pagination aria-label="Data table pages" size="sm" *ngIf="totalPages > 1">
+                              <c-page-item [disabled]="currentPage === 0">
+                                <a cPageLink (click)="changePage(0, 'bulk')" style="cursor: pointer;">First</a>
                               </c-page-item>
-                              <c-page-item [disabled]="!currentFilePagination.hasPrevious || isLoadingPageData">
-                                <a cPageLink (click)="!isLoadingPageData ? changePage(currentPage - 1, 'bulk') : null" style="cursor: pointer;">
+                              <c-page-item [disabled]="currentPage === 0">
+                                <a cPageLink (click)="changePage(currentPage - 1, 'bulk')" style="cursor: pointer;">
                                   <span aria-hidden="true">&laquo;</span>
                                 </a>
                               </c-page-item>
                               
-                              <c-page-item *ngFor="let page of getVisiblePageNumbers(currentFilePagination.totalItems, pageSize, currentPage)" 
-                                            [active]="currentPage === page"
-                                            [disabled]="isLoadingPageData">
-                                <a cPageLink (click)="!isLoadingPageData ? changePage(page, 'bulk') : null" style="cursor: pointer;">
+                              <c-page-item *ngFor="let page of getVisiblePageNumbers(currentCsvFile.data.length, pageSize, currentPage)" 
+                                            [active]="currentPage === page">
+                                <a cPageLink (click)="changePage(page, 'bulk')" style="cursor: pointer;">
                                   {{ page + 1 }}
                                 </a>
                               </c-page-item>
                               
-                              <c-page-item [disabled]="!currentFilePagination.hasNext || isLoadingPageData">
-                                <a cPageLink (click)="!isLoadingPageData ? changePage(currentPage + 1, 'bulk') : null" style="cursor: pointer;">
+                              <c-page-item [disabled]="currentPage >= totalPages - 1">
+                                <a cPageLink (click)="changePage(currentPage + 1, 'bulk')" style="cursor: pointer;">
                                   <span aria-hidden="true">&raquo;</span>
                                 </a>
                               </c-page-item>
-                              <c-page-item [disabled]="!currentFilePagination.hasNext || isLoadingPageData">
-                                <a cPageLink (click)="!isLoadingPageData ? changePage(currentFilePagination.totalPages - 1, 'bulk') : null" style="cursor: pointer;">Last</a>
+                              <c-page-item [disabled]="currentPage >= totalPages - 1">
+                                <a cPageLink (click)="changePage(totalPages - 1, 'bulk')" style="cursor: pointer;">Last</a>
                               </c-page-item>
                             </c-pagination>
+                            
                             <div>
                               <select 
                                 cSelect 
@@ -499,7 +497,7 @@
                             [style.pointer-events]="disableOtherMyFiles && activeCsvFile !== file.id ? 'none' : 'auto'"
                             (click)="!disableOtherMyFiles || activeCsvFile === file.id ? loadFileToVisualization(file.id) : null">
                             <div class="d-flex align-items-center">
-                              <span class="text-truncate">{{ file.name }}</span>
+                              <span class="text-truncate">{{ cleanFileName(file.name) }}</span>
                               <small class="text-muted ms-auto">
                                 {{ file.timestamp | date:'short' }}
                               </small>

@@ -1,6 +1,6 @@
 export const environment = {
     production: false,
-    apiUrl: 'localhost:3000/api'
+    apiUrl: 'https://advsofttech-assignment-2.onrender.com'
 };
 
 export const environmentProd = {

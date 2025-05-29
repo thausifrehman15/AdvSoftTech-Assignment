@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 import os
 from app.predictor import predict_sentiment
 from app.auth import register_user, login_user
@@ -93,7 +93,7 @@ def predict():
             predictions = []
 
         # Add new prediction to user's history
-        predictions.append(result)
+        predictions.insert(0, result)
 
         # Save updated predictions
         with open(history_file, "w") as f:
@@ -570,7 +570,7 @@ def get_user_data(user_id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-@app.route("/file-data/<user_id>/<file_id>", methods=["GET"])
+@app.route("/files/<user_id>/<file_id>", methods=["GET"])
 def get_file_data(user_id, file_id):
     # Extract token and username from headers
     token = request.headers.get("authToken")
@@ -614,6 +614,130 @@ def get_file_data(user_id, file_id):
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route("/files/<user_id>/<file_id>/download", methods=["GET"])
+def download_file(user_id, file_id):
+    # Extract token and username from headers
+    token = request.headers.get("authToken")
+    username = request.headers.get("username")
+
+    if not token or not username:
+        return jsonify({"error": "Authorization token and Username are required"}), 401
+
+    # Verify the token
+    try:
+        decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        if decoded_token.get("username") != username:
+            return jsonify({"error": "Invalid token or username mismatch"}), 403
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token has expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    try:
+        user_dir = USER_FILES_DIR / user_id
+        
+        # Debug: Print the file_id and user_dir
+        print(f"Looking for file_id: {file_id}")
+        print(f"User directory: {user_dir}")
+        print(f"User directory exists: {user_dir.exists()}")
+        
+        # Try different file path patterns
+        possible_paths = [
+            user_dir / f"{file_id}_completed.csv",
+            user_dir / f"{file_id}.csv_completed.csv",  # Alternative pattern
+            user_dir / file_id  # Direct file name
+        ]
+        
+        file_path = None
+        for path in possible_paths:
+            print(f"Checking path: {path}")
+            print(f"Path exists: {path.exists()}")
+            if path.exists():
+                file_path = path
+                break
+        
+        # If no direct match, search for files containing the file_id
+        if not file_path:
+            print(f"Direct paths not found, searching in directory...")
+            if user_dir.exists():
+                for existing_file in user_dir.glob("*_completed.csv"):
+                    print(f"Found completed file: {existing_file.name}")
+                    # Check if file_id is part of the filename
+                    if file_id in existing_file.name:
+                        file_path = existing_file
+                        break
+
+        if not file_path or not file_path.exists():
+            # List all files in user directory for debugging
+            if user_dir.exists():
+                print(f"Files in user directory:")
+                for f in user_dir.iterdir():
+                    print(f"  - {f.name}")
+            
+            return jsonify({
+                "error": "File not found",
+                "message": f"The requested file '{file_id}' does not exist",
+                "debug": f"Searched in: {user_dir}"
+            }), 404
+
+        print(f"Found file at: {file_path}")
+        print(f"Absolute path: {file_path.absolute()}")
+        print(f"File exists check: {file_path.exists()}")
+        print(f"File is file: {file_path.is_file()}")
+
+        # Convert to absolute path to avoid path issues
+        absolute_file_path = file_path.resolve()
+        print(f"Resolved absolute path: {absolute_file_path}")
+
+        # Verify the file actually exists before sending
+        if not absolute_file_path.exists():
+            return jsonify({
+                "error": "File not accessible",
+                "message": f"File exists but cannot be accessed: {absolute_file_path}"
+            }), 500
+
+        # Extract clean filename for download
+        original_filename = file_path.stem
+        # Remove _completed suffix
+        if original_filename.endswith('_completed'):
+            original_filename = original_filename[:-10]  # Remove '_completed'
+        
+        # Remove timestamp prefix if present (e.g., "20250528_232854_")
+        if '_' in original_filename:
+            parts = original_filename.split('_')
+            if len(parts) >= 3 and len(parts[0]) == 8 and len(parts[1]) == 6:
+                # Remove first two parts (date and time)
+                original_filename = '_'.join(parts[2:])
+        
+        # Clean filename - remove problematic characters
+        original_filename = original_filename.replace(' - Copy (2)', '_Copy_2')
+        original_filename = original_filename.replace(' ', '_')
+        original_filename = original_filename.replace('(', '_')
+        original_filename = original_filename.replace(')', '_')
+        
+        # Ensure .csv extension
+        if not original_filename.endswith('.csv'):
+            original_filename += '.csv'
+
+        print(f"Sending file with name: predictions_{original_filename}")
+
+        # Use string path instead of Path object for send_file
+        return send_file(
+            str(absolute_file_path),  # Convert to string
+            as_attachment=True,
+            download_name=f"predictions_{original_filename}",
+            mimetype='text/csv'
+        )
+
+    except Exception as e:
+        print(f"Download error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
+
+
+
 
 
 if __name__ == "__main__":
