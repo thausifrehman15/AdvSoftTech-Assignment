@@ -1,0 +1,38 @@
+{
+    "sourceFile": "Frontend/src/app/views/dashboard/dashboard.routes.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 5,
+            "patches": [
+                {
+                    "date": 1747826473047,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1747827858060,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -5,10 +5,22 @@\n   {\r\n     path: '',\r\n     component: DashboardComponent,\r\n     children: [\r\n-      { path: '', redirectTo: 'single', pathMatch: 'full' },\r\n-      { path: 'single', component: DashboardComponent, data: { activeTab: 'single' } },\r\n-      { path: 'bulk', component: DashboardComponent, data: { activeTab: 'bulk' } }\r\n+      { \r\n+        path: '', \r\n+        redirectTo: 'single', \r\n+        pathMatch: 'full' \r\n+      },\r\n+      { \r\n+        path: 'single', \r\n+        component: DashboardComponent,\r\n+        data: { activeTab: 'single' }\r\n+      },\r\n+      { \r\n+        path: 'bulk', \r\n+        component: DashboardComponent,\r\n+        data: { activeTab: 'bulk' }\r\n+      }\r\n     ]\r\n   }\r\n ];\n\\ No newline at end of file\n"
+                },
+                {
+                    "date": 1747828901648,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -4,23 +4,38 @@\n export const routes: Routes = [\r\n   {\r\n     path: '',\r\n     component: DashboardComponent,\r\n-    children: [\r\n-      { \r\n-        path: '', \r\n-        redirectTo: 'single', \r\n-        pathMatch: 'full' \r\n-      },\r\n-      { \r\n-        path: 'single', \r\n-        component: DashboardComponent,\r\n-        data: { activeTab: 'single' }\r\n-      },\r\n-      { \r\n-        path: 'bulk', \r\n-        component: DashboardComponent,\r\n-        data: { activeTab: 'bulk' }\r\n+    data: {\r\n+      title: 'Dashboard',\r\n+      breadcrumb: {\r\n+        label: 'Dashboard',\r\n+        info: 'Main dashboard'\r\n       }\r\n-    ]\r\n+    },\r\n+    children: []\r\n+  },\r\n+  {\r\n+    path: 'single',\r\n+    component: DashboardComponent,\r\n+    data: {\r\n+      title: 'Single Line Prediction',\r\n+      activeTab: 'single',\r\n+      breadcrumb: {\r\n+        label: 'Single Line Prediction',\r\n+        info: 'Predict sentiment for a single text'\r\n+      }\r\n+    }\r\n+  },\r\n+  {\r\n+    path: 'bulk',\r\n+    component: DashboardComponent,\r\n+    data: {\r\n+      title: 'Bulk Prediction',\r\n+      activeTab: 'bulk',\r\n+      breadcrumb: {\r\n+        label: 'Bulk Prediction',\r\n+        info: 'Predict sentiment for multiple texts via CSV'\r\n+      }\r\n+    }\r\n   }\r\n ];\n\\ No newline at end of file\n"
+                },
+                {
+                    "date": 1747829715721,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -3,39 +3,24 @@\n \r\n export const routes: Routes = [\r\n   {\r\n     path: '',\r\n-    component: DashboardComponent,\r\n-    data: {\r\n-      title: 'Dashboard',\r\n-      breadcrumb: {\r\n-        label: 'Dashboard',\r\n-        info: 'Main dashboard'\r\n-      }\r\n-    },\r\n-    children: []\r\n+    redirectTo: 'single',\r\n+    pathMatch: 'full'\r\n   },\r\n   {\r\n     path: 'single',\r\n     component: DashboardComponent,\r\n     data: {\r\n       title: 'Single Line Prediction',\r\n-      activeTab: 'single',\r\n-      breadcrumb: {\r\n-        label: 'Single Line Prediction',\r\n-        info: 'Predict sentiment for a single text'\r\n-      }\r\n+      activeTab: 'single'\r\n     }\r\n   },\r\n   {\r\n     path: 'bulk',\r\n     component: DashboardComponent,\r\n     data: {\r\n       title: 'Bulk Prediction',\r\n-      activeTab: 'bulk',\r\n-      breadcrumb: {\r\n-        label: 'Bulk Prediction',\r\n-        info: 'Predict sentiment for multiple texts via CSV'\r\n-      }\r\n+      activeTab: 'bulk'\r\n     }\r\n   }\r\n ];\n\\ No newline at end of file\n"
+                },
+                {
+                    "date": 1747830760980,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -10,17 +10,15 @@\n   {\r\n     path: 'single',\r\n     component: DashboardComponent,\r\n     data: {\r\n-      title: 'Single Line Prediction',\r\n       activeTab: 'single'\r\n     }\r\n   },\r\n   {\r\n     path: 'bulk',\r\n     component: DashboardComponent,\r\n     data: {\r\n-      title: 'Bulk Prediction',\r\n       activeTab: 'bulk'\r\n     }\r\n   }\r\n ];\n\\ No newline at end of file\n"
+                },
+                {
+                    "date": 1748378744773,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,24 +1,28 @@\n import { Routes } from '@angular/router';\r\n+import { SinglePredictionComponent } from './single-prediction/single-prediction.component';\r\n+import { BulkPredictionComponent } from './bulk-prediction/bulk-prediction.component';\r\n import { DashboardComponent } from './dashboard.component';\r\n \r\n-export const routes: Routes = [\r\n+export const DASHBOARD_ROUTES: Routes = [\r\n   {\r\n     path: '',\r\n-    redirectTo: 'single',\r\n-    pathMatch: 'full'\r\n-  },\r\n-  {\r\n-    path: 'single',\r\n     component: DashboardComponent,\r\n-    data: {\r\n-      activeTab: 'single'\r\n-    }\r\n-  },\r\n-  {\r\n-    path: 'bulk',\r\n-    component: DashboardComponent,\r\n-    data: {\r\n-      activeTab: 'bulk'\r\n\\ No newline at end of file\n-    }\r\n+    children: [\r\n+      {\r\n+        path: '',\r\n+        redirectTo: 'single',\r\n+        pathMatch: 'full'\r\n+      },\r\n+      {\r\n+        path: 'single',\r\n+        component: SinglePredictionComponent,\r\n+        data: { activeTab: 'single' }\r\n+      },\r\n+      {\r\n+        path: 'bulk',\r\n+        component: BulkPredictionComponent,\r\n+        data: { activeTab: 'bulk' }\r\n+      }\r\n+    ]\r\n   }\r\n-];\n+];\r\n"
+                }
+            ],
+            "date": 1747826473047,
+            "name": "Commit-0",
+            "content": "import { Routes } from '@angular/router';\r\nimport { DashboardComponent } from './dashboard.component';\r\n\r\nexport const routes: Routes = [\r\n  {\r\n    path: '',\r\n    component: DashboardComponent,\r\n    children: [\r\n      { path: '', redirectTo: 'single', pathMatch: 'full' },\r\n      { path: 'single', component: DashboardComponent, data: { activeTab: 'single' } },\r\n      { path: 'bulk', component: DashboardComponent, data: { activeTab: 'bulk' } }\r\n    ]\r\n  }\r\n];"
+        }
+    ]
+}

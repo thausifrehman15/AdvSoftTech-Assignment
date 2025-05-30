@@ -1,6 +1,7 @@
 import { ChartData } from 'chart.js';
 import { Observable, of, throwError } from 'rxjs';
 import { delay } from 'rxjs/operators';
+import { PredictionHistoryResponse } from './prediction.interface';
 
 /**
  * Sample prediction history data for single prediction view
@@ -558,21 +559,43 @@ let csvFilesData = [...SAMPLE_CSV_FILES];
  * @param text Text to analyze
  * @returns Observable with prediction result
  */
-export function mockPredictText(text: string): Observable<any> {
+export function mockPredictText(text: string): PredictionHistoryResponse {
   // Simulate API processing time
-  return of({
+  // Generate random confidence value between 30 and 95
+  const confidence = Math.floor(Math.random() * 65) + 30;
+  
+  // Get prediction category
+  const final_prediction = getRandomPrediction();
+  
+  // Generate sentiment scores with highest value matching prediction
+  const sentimentScores = [
+    { name: 'Very Negative', value: Math.floor(Math.random() * 25) + 5 },
+    { name: 'Slightly Negative', value: Math.floor(Math.random() * 25) + 5 },
+    { name: 'Neutral', value: Math.floor(Math.random() * 25) + 5 },
+    { name: 'Slightly Positive', value: Math.floor(Math.random() * 25) + 5 },
+    { name: 'Very Positive', value: Math.floor(Math.random() * 25) + 5 },
+  ];
+  
+  // Ensure the predicted category has the highest confidence
+  const predictedCategoryIndex = sentimentScores.findIndex(
+    (c) => c.name === final_prediction
+  );
+  if (predictedCategoryIndex >= 0) {
+    sentimentScores[predictedCategoryIndex].value = confidence;
+  }
+  
+  const prediction = {
     text: text,
-    category: 'review',
-    final_prediction: getRandomPrediction(),
-    sentiment_scores: generateRandomSentimentScores(),
-    text_analysis: {
-      avg_word_length: (text.length / (text.split(' ').length || 1)).toFixed(1),
-      has_exclamation: text.includes('!'),
-      has_question: text.includes('?'),
-      length: text.length,
-      word_count: text.split(' ').length,
-    },
-  }).pipe(delay(1500)); // Simulate network delay
+    final_prediction: final_prediction,
+    confidence: confidence,
+    sentiment_scores: sentimentScores,
+    timestamp: new Date()
+  };
+  
+  // Add to prediction history
+  addPredictionToHistory(prediction);
+  
+  return prediction;
 }
 
 /**
@@ -704,6 +727,50 @@ export function mockGetFiles(): Observable<{
     completedFiles: completedFiles,
   }).pipe(delay(600));
 }
+
+/**
+ * Mock API call to get paginated file data
+ * @param fileId ID of the file to retrieve
+ * @param page Page number (0-based)
+ * @param pageSize Number of items per page
+ * @returns Observable with paginated data
+ */
+export function mockGetFileDataPaginated(
+  fileId: string, 
+  page: number, 
+  pageSize: number
+): Observable<any> {
+  const file = csvFilesData.find(f => f.id === fileId) || completedFiles.find(f => f.id === fileId);
+  
+  if (!file || !file.data) {
+    return throwError(() => new Error('File not found'));
+  }
+  
+  const totalItems = file.data.length;
+  const totalPages = Math.ceil(totalItems / pageSize);
+  const startIndex = page * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedData = file.data.slice(startIndex, endIndex);
+  
+  return of({
+    data: paginatedData,
+    pagination: {
+      currentPage: page,
+      pageSize: pageSize,
+      totalItems: totalItems,
+      totalPages: totalPages,
+      hasNext: page < totalPages - 1,
+      hasPrevious: page > 0
+    },
+    fileInfo: {
+      id: file.id,
+      name: file.name,
+      status: file.status,
+      timestamp: file.timestamp
+    }
+  }).pipe(delay(500)); // Simulate API delay
+}
+
 
 /**
  * Mock API call to get file details

@@ -8,7 +8,10 @@
             <c-nav-item>
               <a cNavLink 
                  [active]="activeTab === 'single'" 
-                 (click)="switchTab('single')"
+                 [class.disabled]="isLoadingFile"
+                 [style.opacity]="isLoadingFile ? '0.7' : '1'"
+                 [style.pointer-events]="isLoadingFile ? 'none' : 'auto'"
+                 (click)="!isLoadingFile ? switchTab('single') : null"
                  style="cursor: pointer;">
                 Single Line Prediction
               </a>
@@ -16,7 +19,10 @@
             <c-nav-item>
               <a cNavLink 
                  [active]="activeTab === 'bulk'" 
-                 (click)="switchTab('bulk')"
+                 [class.disabled]="isLoadingFile"
+                 [style.opacity]="isLoadingFile ? '0.7' : '1'"
+                 [style.pointer-events]="isLoadingFile ? 'none' : 'auto'"
+                 (click)="!isLoadingFile ? switchTab('bulk') : null"
                  style="cursor: pointer;">
                 Bulk Prediction
                 <span *ngIf="!hasBulkAccess" class="badge bg-secondary ms-1">PRO</span>
@@ -24,6 +30,7 @@
             </c-nav-item>
           </c-nav>
         </c-card-header>
+
         <c-card-body>
           <!-- Single Line Prediction Content -->
           <div *ngIf="activeTab === 'single'">
@@ -197,18 +204,21 @@
                           <a [active]="activeCsvFile === csvFile.id" 
                              cNavLink 
                              class="d-flex align-items-center"
-                             (click)="selectCsvFile(csvFile.id)">
+                             [class.disabled]="isLoadingFile"
+                             [style.opacity]="isLoadingFile ? '0.7' : '1'"
+                             [style.pointer-events]="isLoadingFile ? 'none' : 'auto'"
+                             (click)="!isLoadingFile ? selectCsvFile(csvFile.id) : null">
                             {{ csvFile.name }}
                             <!-- Delete button -->
                             <button 
-                              *ngIf="!csvFile.isDefault"
                               cButton 
                               color="danger" 
                               size="sm" 
                               variant="ghost"
                               class="ms-2 p-0 px-1"
                               style="line-height: 1;"
-                              (click)="deleteCsvFile(csvFile.id, $event)">
+                              [disabled]="isLoadingFile"
+                              (click)="!isLoadingFile ? deleteCsvFile(csvFile.id, $event) : null">
                               &times;
                             </button>
                           </a>
@@ -219,12 +229,32 @@
                       <!-- Radar Chart -->
                       <c-card class="mb-4">
                         <c-card-header>
-                          <strong>{{ currentCsvFile.name }} - Radar Chart</strong>
+                          <strong>{{ currentCsvFile?.name }} - Chart</strong>
                         </c-card-header>
                         <c-card-body>
-                          <c-chart type="radar" 
-                                  [data]="currentCsvFile.chartData" 
+                          <div *ngIf="isLoadingFile || !isChartReady" class="text-center py-5">
+                            <div class="spinner-border text-primary" role="status">
+                              <span class="visually-hidden">Loading chart...</span>
+                            </div>
+                            <p class="mt-2">{{ isLoadingFile ? 'Loading file data and chart...' : 'Initializing chart...' }}</p>
+                          </div>
+                          
+                          <!-- Only show chart when not loading, chart is ready, and data exists -->
+                          <ng-container *ngIf="!isLoadingFile && isChartReady">
+                            <!-- Use ng-container with ngIf and unique ID to force recreation -->
+                            <ng-container *ngIf="chartKey">
+                              <div [id]="'chart-container-' + chartKey">
+                                <c-chart 
+                                  #radarChart
+                                  type="radar" 
+                                  [data]="currentCsvFile.chartData"
                                   [options]="options" />
+                              </div>
+                            </ng-container>
+                          </ng-container>
+                          <div *ngIf="!isLoadingFile && isChartReady && (!currentCsvFile || !currentCsvFile.chartData)" class="text-center py-5">
+                            <p class="text-muted">No chart data available</p>
+                          </div>
                         </c-card-body>
                       </c-card>
 
@@ -253,38 +283,45 @@
                           </div>
                         </c-card-header>
                         <c-card-body>
-                          <div class="table-responsive" style="max-height: 450px; overflow-y: auto;">
-                            <table cTable hover>
+                          <div *ngIf="!isLoadingFile && isChartReady && currentCsvFile" class="table-responsive">
+                            <!-- Loading indicator for page data -->
+                            <div *ngIf="isLoadingPageData" class="text-center py-3">
+                              <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                <span class="visually-hidden">Loading page data...</span>
+                              </div>
+                              <p class="mt-2 text-muted small">Loading page data...</p>
+                            </div>
+                            <table *ngIf="!isLoadingPageData" cTable hover>
                               <thead>
                                 <tr>
                                   <th>Text</th>
                                   <th>Prediction</th>
                                   <th>Confidence</th>
-                                  <th>Sentiment Scores</th>
+                                  <th>Details</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 <tr *ngFor="let row of getPaginatedData(currentCsvFile.data, currentPage, pageSize)">
                                   <!-- Text column -->
                                   <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" 
-                                      [title]="row.text || row.Text">
-                                    {{ row.text || row.Text }}
+                                      [title]="row.text">
+                                    {{ row.text }}
                                   </td>
                                   
                                   <!-- Prediction column -->
                                   <td>
-                                    <span class="badge" [style.background-color]="getCategoryColor(row.final_prediction || row.Prediction)">
-                                      {{ row.final_prediction || row.Prediction }}
+                                    <span class="badge" [style.background-color]="getCategoryColor(row.final_prediction)">
+                                      {{ row.final_prediction }}
                                     </span>
                                   </td>
                                   
                                   <!-- Confidence column -->
-                                  <td>{{ row.confidence || row.Confidence }}%</td>
+                                  <td>{{ row.confidence }}%</td>
                                   
-                                  <!-- Categories/Sentiment Scores column -->
+                                  <!-- Sentiment Scores column -->
                                   <td>
                                     <span class="badge rounded-pill bg-primary" 
-                                          (click)="showCategoriesModal(row.sentiment_scores || row.categories)" 
+                                          (click)="showCategoriesModal(row.sentiment_scores)" 
                                           style="cursor: pointer;">
                                       View Details
                                     </span>
@@ -294,15 +331,16 @@
                             </table>
                           </div> 
                           <!-- Pagination controls -->
-                          <div class="d-flex justify-content-between align-items-center mt-3">
+                          <div class="d-flex justify-content-between align-items-center mt-3" *ngIf="!isLoadingPageData && currentCsvFile?.data?.length">
                             <div>
                               <small class="text-muted">
-                                Showing {{ currentPage * pageSize + 1 }} to 
+                                Showing {{ (currentPage * pageSize) + 1 }} to 
                                 {{ Math.min((currentPage + 1) * pageSize, currentCsvFile.data.length) }} of 
                                 {{ currentCsvFile.data.length }} rows
                               </small>
                             </div>
-                            <c-pagination aria-label="Data table pages" size="sm">
+                            
+                            <c-pagination aria-label="Data table pages" size="sm" *ngIf="totalPages > 1">
                               <c-page-item [disabled]="currentPage === 0">
                                 <a cPageLink (click)="changePage(0, 'bulk')" style="cursor: pointer;">First</a>
                               </c-page-item>
@@ -313,19 +351,19 @@
                               </c-page-item>
                               
                               <c-page-item *ngFor="let page of getVisiblePageNumbers(currentCsvFile.data.length, pageSize, currentPage)" 
-                                          [active]="currentPage === page">
+                                            [active]="currentPage === page">
                                 <a cPageLink (click)="changePage(page, 'bulk')" style="cursor: pointer;">
                                   {{ page + 1 }}
                                 </a>
                               </c-page-item>
                               
-                              <c-page-item [disabled]="currentPage >= Math.ceil(currentCsvFile.data.length / pageSize) - 1">
+                              <c-page-item [disabled]="currentPage >= totalPages - 1">
                                 <a cPageLink (click)="changePage(currentPage + 1, 'bulk')" style="cursor: pointer;">
                                   <span aria-hidden="true">&raquo;</span>
                                 </a>
                               </c-page-item>
-                              <c-page-item [disabled]="currentPage >= Math.ceil(currentCsvFile.data.length / pageSize) - 1">
-                                <a cPageLink (click)="changePage(Math.ceil(currentCsvFile.data.length / pageSize) - 1, 'bulk')" style="cursor: pointer;">Last</a>
+                              <c-page-item [disabled]="currentPage >= totalPages - 1">
+                                <a cPageLink (click)="changePage(totalPages - 1, 'bulk')" style="cursor: pointer;">Last</a>
                               </c-page-item>
                             </c-pagination>
                             
@@ -404,69 +442,88 @@
                       </div>
                     </c-card-body>
                   </c-card>
-                                  <c-card>
-                  <c-card-header>
-                    <strong>My Files</strong>
-                  </c-card-header>
-                  <c-card-body>
-                    <!-- Add search input -->
-                    <div class="mb-3">
-                      <div class="input-group">
-                        <!-- <svg cIcon name="cil-search"></svg> -->
-                        <input 
-                          cFormControl 
-                          type="text" 
-                          placeholder="Search files..." 
-                          [(ngModel)]="fileSearchQuery"
-                          [ngModelOptions]="{standalone: true}"
-                          (input)="filterFiles()">
-                        <button 
-                          *ngIf="fileSearchQuery" 
-                          cButton 
-                          color="secondary" 
-                          variant="outline" 
-                          type="button"
-                          (click)="clearFileSearch()">
-                          &times;
-                        </button>
+                  <c-card>
+                    <c-card-header>
+                      <strong>My Files</strong>
+                    </c-card-header>
+                    <c-card-body>
+                      <!-- Add search input -->
+                      <div class="mb-3">
+                        <div class="input-group">
+                          <!-- <svg cIcon name="cil-search"></svg> -->
+                          <input 
+                            cFormControl 
+                            type="text" 
+                            placeholder="Search files..." 
+                            [(ngModel)]="fileSearchQuery"
+                            [ngModelOptions]="{standalone: true}"
+                            [disabled]="isLoadingFile"
+                            (input)="filterFiles()">
+                          <button 
+                            *ngIf="fileSearchQuery" 
+                            cButton 
+                            color="secondary" 
+                            variant="outline" 
+                            type="button"
+                            [disabled]="isLoadingFile"
+                            (click)="clearFileSearch()">
+                            &times;
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                    
-                    <div *ngIf="filteredFiles.length === 0" class="text-center py-3">
-                      <p class="text-muted mb-0">
-                        {{ myFiles.length === 0 ? 'No files available' : 'No matching files' }}
-                      </p>
-                    </div>
-                    
-                    <div style="max-height: 240px; overflow-y: auto;" *ngIf="filteredFiles.length > 0">
-                      <ul cListGroup>
-                        <li cListGroupItem 
-                          *ngFor="let file of filteredFiles"
-                          [active]="activeCsvFile === file.id"
-                          style="cursor: pointer;"
-                          (click)="loadFileToVisualization(file.id)">
-                          <div class="d-flex align-items-center">
-                            <span class="text-truncate">{{ file.name }}</span>
-                            <small class="text-muted ms-auto">
-                              {{ file.timestamp | date:'short' }}
-                            </small>
-                          </div>
-                        </li>
-                      </ul>
-                    </div>
-                    
-                    <div *ngIf="!fileSearchQuery && myFiles.length > 5" class="text-end mt-2">
-                      <small class="text-muted">
-                        Showing {{ filteredFiles.length }} of {{ myFiles.length }} files
-                      </small>
-                    </div>
-                    <div *ngIf="fileSearchQuery && filteredFiles.length > 0" class="text-end mt-2">
-                      <small class="text-muted">
-                        Found {{ filteredFiles.length }} {{ filteredFiles.length === 1 ? 'match' : 'matches' }}
-                      </small>
-                    </div>
-                  </c-card-body>
-                </c-card>
+                      
+                      <!-- Loading indicator -->
+                      <div *ngIf="isLoadingFile" class="text-center py-3">
+                        <div class="spinner-border spinner-border-sm text-primary" role="status">
+                          <span class="visually-hidden">Loading file...</span>
+                        </div>
+                        <p class="mt-2 text-muted small">Loading file data and chart...</p>
+                      </div>
+                      
+                      <div *ngIf="filteredFiles.length === 0 && !isLoadingFile" class="text-center py-3">
+                        <p class="text-muted mb-0">
+                          {{ myFiles.length === 0 ? 'No files available' : 'No matching files' }}
+                        </p>
+                      </div>
+                      
+                      <div style="max-height: 240px; overflow-y: auto;" *ngIf="filteredFiles.length > 0">
+                        <ul cListGroup>
+                          <li cListGroupItem 
+                            *ngFor="let file of filteredFiles"
+                            [active]="activeCsvFile === file.id"
+                            [class.disabled]="disableOtherMyFiles && activeCsvFile !== file.id"
+                            style="cursor: pointer;"
+                            [style.opacity]="disableOtherMyFiles && activeCsvFile !== file.id ? '0.5' : '1'"
+                            [style.pointer-events]="disableOtherMyFiles && activeCsvFile !== file.id ? 'none' : 'auto'"
+                            (click)="!disableOtherMyFiles || activeCsvFile === file.id ? loadFileToVisualization(file.id) : null">
+                            <div class="d-flex align-items-center">
+                              <span class="text-truncate">{{ cleanFileName(file.name) }}</span>
+                              <small class="text-muted ms-auto">
+                                {{ file.timestamp | date:'short' }}
+                              </small>
+                              <!-- Loading indicator for active file -->
+                              <div *ngIf="isLoadingFile && activeCsvFile === file.id" 
+                                  class="spinner-border spinner-border-sm text-primary ms-2" 
+                                  role="status">
+                                <span class="visually-hidden">Loading...</span>
+                              </div>
+                            </div>
+                          </li>
+                        </ul>
+                      </div>
+                      
+                      <div *ngIf="!fileSearchQuery && myFiles.length > 5 && !isLoadingFile" class="text-end mt-2">
+                        <small class="text-muted">
+                          Showing {{ filteredFiles.length }} of {{ myFiles.length }} files
+                        </small>
+                      </div>
+                      <div *ngIf="fileSearchQuery && filteredFiles.length > 0 && !isLoadingFile" class="text-end mt-2">
+                        <small class="text-muted">
+                          Found {{ filteredFiles.length }} {{ filteredFiles.length === 1 ? 'match' : 'matches' }}
+                        </small>
+                      </div>
+                    </c-card-body>
+                  </c-card>
                 </c-col>
               </c-row>
             </div>

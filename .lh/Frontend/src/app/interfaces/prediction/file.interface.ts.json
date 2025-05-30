@@ -1,0 +1,22 @@
+{
+    "sourceFile": "Frontend/src/app/interfaces/prediction/file.interface.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 1,
+            "patches": [
+                {
+                    "date": 1747917279307,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1747917285505,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,4 +1,6 @@\n+import { Category } from \"./prediction.interface\";\r\n+\r\n // File upload interfaces\r\n export interface FileUploadResponse {\r\n   fileId: string;\r\n   name: string;\r\n"
+                }
+            ],
+            "date": 1747917279307,
+            "name": "Commit-0",
+            "content": "// File upload interfaces\r\nexport interface FileUploadResponse {\r\n  fileId: string;\r\n  name: string;\r\n  timestamp: Date;\r\n}\r\n\r\n// File list interfaces\r\nexport interface FileListItem {\r\n  id: string;\r\n  name: string;\r\n  timestamp: Date;\r\n  status: string;\r\n  recordCount?: number;\r\n}\r\n\r\nexport interface FileListResponse {\r\n  pendingFiles: FileListItem[];\r\n  completedFiles: FileListItem[];\r\n}\r\n\r\n// File status interfaces\r\nexport interface FileStatusResponse {\r\n  status: string; // 'pending', 'processing', 'completed', 'failed'\r\n  progress?: number; // 0-100\r\n  message?: string; // Optional message, especially for errors\r\n}\r\n\r\n// File details interfaces\r\nexport interface FileRow {\r\n  id: string;\r\n  text: string;\r\n  sentiment: string;\r\n  sentimentScore: number;\r\n  categories: Category[];\r\n}\r\n\r\nexport interface FileDetailResponse {\r\n  id: string;\r\n  name: string;\r\n  timestamp: Date;\r\n  status: string;\r\n  recordCount: number;\r\n  data: FileRow[];\r\n  summary?: {\r\n    positiveCount: number;\r\n    negativeCount: number;\r\n    neutralCount: number;\r\n    categoryDistribution: {\r\n      [category: string]: number;\r\n    };\r\n  };\r\n}"
+        }
+    ]
+}

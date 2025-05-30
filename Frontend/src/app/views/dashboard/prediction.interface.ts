@@ -36,13 +36,6 @@ export interface PredictionRequest {
 }
 
 
-export interface PredictionResponse {
-  text: string;
-  confidence: number;
-  final_prediction?: string;
-  sentiment_scores?: {name:string,value:number}[];  
-  timestamp?: Date;
-}
 
 export interface FileUploadResponse {
   fileId: string;
@@ -52,56 +45,24 @@ export interface FileUploadResponse {
   timestamp: Date;
 }
 
-export interface FileListItem {
-  id: string;
-  name: string;
-  data: any[];
-  chartData?: ChartData;
-  isDefault?: boolean;
-  status: string;
-  timestamp: Date; 
-}
-
-// Make the data property optional in CompletedFile
-export interface CompletedFile {
-  id: string;
-  name: string;
-  status: string;
-  timestamp: Date;
-  data?: PredictionResponse[]; // Use PredictionResponse for data
-}
-
-// Use FileListItem for completedFiles since your mock data matches that structure
-export interface FileListResponse {
-  pendingFiles: Array<{
-    id: string;
-    name: string;
-    timestamp: string;
-  }>;
-  completedFiles: Array<{
-    id: string;
-    name: string;
-    status: string;
-    timestamp: string;
-    data?: PredictionResponse[];
-  }>;
-  count: number;
-}
-
 export interface FileDetailResponse {
   id: string;
   name: string;
-  status: string;
   timestamp: Date;
-  uploadedAt?: string;
-  data?: PredictionResponse[]; // Use PredictionResponse for data
+  data?: PredictionHistoryResponse[];
 }
 
-export interface FileStatusResponse {
+export interface FilesResponse {
   id: string;
-  status: string;
-  progress?: number;
-  message?: string;
+  name: string;
+  timestamp: Date;
+}
+export interface PredictionHistoryResponse {
+  text: string;
+  final_prediction: string;
+  confidence: number;
+  sentiment_scores: { name: string; value: number; }[];
+  timestamp: Date;
 }
 
 // Update the UserDataResponse to match your mock data structure
@@ -110,25 +71,26 @@ export interface UserDataResponse {
   email: string;
   totalPredictions: number;
   totalFiles: number;
-  predictionHistory: Array<{
-    text: string;
-    final_prediction: string;
-    confidence: number;
-    sentiment_scores: { name: string; value: number; }[];
-    timestamp: string;
-  }>;
-  pendingFiles: Array<{
-    id: string;
-    name: string;
-    timestamp: string;
-  }>;
-  completedFiles: Array<{
-    id: string;
-    name: string;
-    status: string;
-    timestamp: string;
-    data?: PredictionResponse[];
-  }>;
+  predictionHistory: PredictionHistoryResponse[];
+  pendingFiles: FilesResponse[];
+  completedFiles: FilesResponse[];
 }
 
-// Add additional interfaces if needed...
+export interface FilesResponseWithChart extends FilesResponse {
+  chartData?: ChartData;
+  data: any[]; // Raw prediction data
+}
+
+export interface UserDataResponseWithChart {
+  username: string;
+  email: string;
+  totalPredictions: number;
+  totalFiles: number;
+  predictionHistory: PredictionHistoryResponse[];
+  pendingFiles: FilesResponse[];
+  completedFiles: FilesResponseWithChart[]; // Use the new interface
+}
+
+export interface NotifyResponse {
+  message: string;
+}

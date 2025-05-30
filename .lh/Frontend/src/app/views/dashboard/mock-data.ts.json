@@ -1,0 +1,18 @@
+{
+    "sourceFile": "Frontend/src/app/views/dashboard/mock-data.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1748182620811,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1748182620811,
+            "name": "Commit-0",
+            "content": "export const mockData = {\r\n  login: {\r\n    token: 'mock-jwt-token-12345',\r\n    user: {\r\n      id: 'user123',\r\n      username: 'testuser',\r\n      email: 'test@example.com'\r\n    },\r\n    message: 'Login successful'\r\n  },\r\n\r\n  register: {\r\n    success: true,\r\n    message: 'Registration successful',\r\n    user: {\r\n      id: 'user123',\r\n      username: 'testuser',\r\n      email: 'test@example.com'\r\n    }\r\n  },\r\n\r\n  prediction: {\r\n    prediction: 'Very Positive',\r\n    confidence: 0.92,\r\n    final_prediction: 'Very Positive',\r\n    sentiment_scores: {\r\n      'Very Positive': 0.92,\r\n      'Slightly Positive': 0.05,\r\n      'Neutral': 0.02,\r\n      'Slightly Negative': 0.01,\r\n      'Very Negative': 0.00\r\n    },\r\n    timestamp: new Date().toISOString()\r\n  },\r\n\r\n  fileUpload: {\r\n    fileId: 'file123',\r\n    name: 'test.csv',\r\n    status: 'uploaded',\r\n    message: 'File uploaded successfully',\r\n    timestamp: new Date().toString()\r\n  },\r\n\r\n  fileList: {\r\n    pendingFiles: [\r\n      {\r\n        id: 'file124',\r\n        name: 'pending.csv',\r\n        timestamp: new Date().toString()\r\n      }\r\n    ],\r\n    completedFiles: [\r\n      {\r\n        id: 'file123',\r\n        name: 'completed.csv',\r\n        status: 'processed',\r\n        timestamp: new Date().toString()\r\n      }\r\n    ],\r\n    count: 2\r\n  },\r\n\r\n  fileDetail: {\r\n    id: 'file123',\r\n    name: 'test.csv',\r\n    status: 'processed',\r\n    uploadedAt: new Date().toString(),\r\n    timestamp: new Date().toString(),\r\n    processedAt: new Date().toString(),\r\n    data: [\r\n      { text: 'I am happy', prediction: 'Positive', confidence: 0.95 },\r\n      { text: 'I am sad', prediction: 'Negative', confidence: 0.85 }\r\n    ]\r\n  },\r\n\r\n  fileStatus: {\r\n    id: 'file123',\r\n    status: 'processing',\r\n    progress: 75,\r\n    message: 'Processing file...'\r\n  },\r\n\r\n  userData: {\r\n    username: 'testuser',\r\n    email: 'test@example.com',\r\n    totalPredictions: 150,\r\n    totalFiles: 5,\r\n    predictionHistory: [\r\n      {\r\n        text: 'I am feeling great today!',\r\n        result: 'Positive',\r\n        confidence: 0.95,\r\n        categories: [\r\n          { name: 'Very Positive', value: 85 },\r\n          { name: 'Slightly Positive', value: 10 },\r\n          { name: 'Neutral', value: 3 },\r\n          { name: 'Slightly Negative', value: 1 },\r\n          { name: 'Very Negative', value: 1 }\r\n        ],\r\n        timestamp: new Date().toString()\r\n      }\r\n    ],\r\n    pendingFiles: [\r\n      {\r\n        id: 'file124',\r\n        name: 'pending.csv',\r\n        timestamp: new Date().toString()\r\n      }\r\n    ],\r\n    completedFiles: [\r\n      {\r\n        id: 'file123',\r\n        name: 'completed.csv',\r\n        status: 'processed',\r\n        timestamp: new Date().toString()\r\n      }\r\n    ]\r\n  }\r\n};\r\n"
+        }
+    ]
+}

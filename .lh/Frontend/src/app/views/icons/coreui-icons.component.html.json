@@ -1,0 +1,18 @@
+{
+    "sourceFile": "Frontend/src/app/views/icons/coreui-icons.component.html",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1747853025008,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1747853025008,
+            "name": "Commit-0",
+            "content": "<!-- <c-card>\r\n  <c-card-header>\r\n    {{ title }}\r\n    <app-docs-link href=\"https://github.com/coreui/coreui-icons\" text=\"GitHub\" />\r\n  </c-card-header>\r\n  <c-card-body>\r\n    <c-row class=\"text-center\">\r\n      @for (icon of icons; track icon[0]) {\r\n        <c-col class=\"mb-5\" [md]=\"3\" [sm]=\"4\" [xl]=\"2\" [xs]=\"6\">\r\n          <svg cIcon [name]=\"icon[0]\" [title]=\"icon[0]\" size=\"3xl\"></svg>\r\n          <div>{{ toKebabCase(icon[0]) }}</div>\r\n        </c-col>\r\n      }\r\n    </c-row>\r\n  </c-card-body>\r\n</c-card> -->\r\n"
+        }
+    ]
+}

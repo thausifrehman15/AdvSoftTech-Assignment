@@ -3,12 +3,9 @@ import { HttpClient, HttpHeaders, HttpErrorResponse, HttpParams } from '@angular
 import { Observable, of, throwError } from 'rxjs';
 import { catchError, delay, map, tap } from 'rxjs/operators';
 import { environment } from '../../environment/environment';
-import { addPredictionToHistory, mockCheckFileStatus, mockGetFileDetails, mockGetFiles, mockGetUserData, mockPredictText, mockUploadCsvFile } from './datafiles';
-import { CheckSubscriptionResponse } from './check-subscription-response.interface';
-import { LoginResponse } from './login-response.interface';
-import { RegisterResponse, PredictionResponse } from './prediction.interface';
-import { NotifyResponse } from './notify-response.interface'; // Assuming it's in the same folder
-
+import { addPredictionToHistory, mockCheckFileStatus, mockGetFileDataPaginated, mockGetFileDetails, mockGetFiles, mockGetUserData, mockPredictText, mockUploadCsvFile } from './datafiles';
+import { FilesResponse, PredictionHistoryResponse, UserDataResponse, UserDataResponseWithChart } from './prediction.interface';
+import { ChartData } from 'chart.js';
 
 @Injectable({
   providedIn: 'root'
@@ -17,7 +14,10 @@ export class PredictionService {
   private apiUrl = environment.apiUrl || 'https://api.yourdomain.com';
   private useMockData = false;
   private authToken: string | null = null;
-  static BULK_PREDICT_ENDPOINT: any;
+  public validUsers = [
+    { username: 'testuser', password: 'password123', email: 'test@example.com' },
+    { username: 'admin', password: 'admin123', email: 'admin@example.com' }
+  ];
 
   constructor(private http: HttpClient) {
     // Check for saved token in local storage
@@ -55,16 +55,21 @@ getCurrentUsername(): string | null {
 }
 
   // Authentication methods
-  login(username: string, password: string): Observable<LoginResponse> {
+  login(username: string, password: string): Observable<any> {
+    if (this.useMockData) {
+      return this.mockLogin(username, password);
+    }
+    
     const endpoint = `${this.apiUrl}/login`;
-    console.log('API URL:', endpoint); // Log the API URL
-    console.log('Login payload:', { username, password }); // Log the payload
-    return this.http.post<LoginResponse>(endpoint, { username, password }).pipe(
+    return this.http.post<any>(endpoint, { username, password }).pipe(
       tap(response => {
         console.log('Login response:', response); // Log the full response
         if (response && response.token) {
-          localStorage.setItem('authToken', response.token); // Save token to local storage
-          console.log('Token saved:', response.token);
+          this.authToken = response.token;
+            localStorage.setItem('authToken', response.token);
+            if (response.user && response.user.username) {
+            localStorage.setItem('username', response.user.username);
+            }
         }
       }),
       catchError(error => {
@@ -74,11 +79,13 @@ getCurrentUsername(): string | null {
     );
   }
 
-  register(email: string, username: string, password: string): Observable<RegisterResponse> {
+  register(email: string, username: string, password: string): Observable<any> {
+    if (this.useMockData) {
+      return this.mockRegister(email, username, password);
+    }
+
     const endpoint = `${this.apiUrl}/signup`;
-    console.log('Register payload:', { email, username, password }); // Log the payload
-    return this.http.post<RegisterResponse>(endpoint, { email, username, password }).pipe(
-      tap(response => console.log('Registration response:', response)),
+    return this.http.post<any>(endpoint, { email, username, password }).pipe(
       catchError(this.handleError)
     );
   }
@@ -98,19 +105,14 @@ getCurrentUsername(): string | null {
   }
 
   private mockLogin(username: string, password: string): Observable<any> {
-    // Valid test credentials
-    const validUsers = [
-      { username: 'testuser', password: 'password123', email: 'test@example.com' },
-      { username: 'admin', password: 'admin123', email: 'admin@example.com' }
-    ];
 
-    const user = validUsers.find(u => u.username === username && u.password === password);
-    
+    const user = this.validUsers.find(u => u.username === username && u.password === password);
+
     if (user) {
       const mockToken = `mock-jwt-token-${Math.random().toString(36).substring(2, 15)}`;
       this.authToken = mockToken;
       localStorage.setItem('authToken', mockToken); // Fixed: using mockToken instead of response.token
-    
+      localStorage.setItem('username', user.username); // Store username for later use
       return of({
         token: mockToken,
         user: { 
@@ -123,8 +125,23 @@ getCurrentUsername(): string | null {
     }
   }
 
-  private mockRegister(email: string, username: string, password: string): Observable<RegisterResponse> {
-    return of({ success: true, message: 'User registered successfully (mock)' }).pipe(delay(500));
+  private mockRegister(email: string, username: string, password: string): Observable<any> {
+    // Check if username already exists in our mock data
+
+    if (this.validUsers.some(u => u.username === username)) {
+      return throwError(() => new Error('Username already exists')).pipe(delay(800));
+    }
+
+    if (this.validUsers.some(u => u.email === email)) {
+      return throwError(() => new Error('Email already registered')).pipe(delay(800));
+    }
+
+    // Registration successful
+    this.validUsers.push({ username, password, email }); 
+    return of({
+      success: true,
+      message: 'Registration successful'
+    }).pipe(delay(800)); // Simulate network delay
   }
 
   // Error handling
@@ -136,72 +153,27 @@ getCurrentUsername(): string | null {
   // Get headers with auth token
   private getAuthHeaders(): HttpHeaders {
     // Ensure we never pass null to the Authorization header
+    const username = localStorage.getItem('username') || '';
     return new HttpHeaders({
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${this.authToken || ''}` // Use empty string as fallback
+      'authToken': `${this.authToken || ''}`, // Use empty string as fallback
+      'username': username
     });
   }
-
-  /**
- * Calls the /notify GET endpoint on the backend.
- * This endpoint is expected to log a message on the server and return a confirmation.
- * @returns Observable<NotifyResponse> containing the server's message.
- */
-triggerServerNotification(): Observable<NotifyResponse> {
-  // Check if mock data should be used (consistent with your other methods)
-  if (this.useMockData) {
-    console.warn('MOCK: Triggering server notification (via triggerServerNotification).');
-    // Return a mock response that matches the NotifyResponse interface
-    return of({ message: 'Mock: Server notification triggered successfully.' } as NotifyResponse).pipe(delay(300));
-  }
-
-  const endpoint = `${this.apiUrl}/notify`; // apiUrl should be 'http://127.0.0.1:5000'
-  
-  console.log(`Service: Calling GET ${endpoint}`);
-
-  // Make the GET request, expecting a response that matches the NotifyResponse interface
-  return this.http.get<NotifyResponse>(endpoint).pipe(
-    tap((response: NotifyResponse) => {
-      console.log('Service: /notify API call successful. Response:', response);
-    }),
-    catchError((error: HttpErrorResponse) => {
-      console.error('Service: /notify API call error:', error);
-      
-      let displayMessage = 'Failed to trigger server notification.';
-      // Attempt to parse error.error if it exists and might contain a specific message
-      if (error.error) {
-        if (typeof error.error.message === 'string') { // If backend error is {message: "..."}
-            displayMessage = error.error.message;
-        } else if (typeof error.error.error === 'string') { // If backend error is {error: "..."}
-            displayMessage = error.error.error;
-        } else if (typeof error.error === 'string') { // If error.error itself is the message string
-            displayMessage = error.error;
-        }
-      } else if (error.message) { // General HttpErrorResponse message
-          displayMessage = error.message;
-      }
-      
-      // Using throwError to propagate a new Error object with a user-friendly message
-      return throwError(() => new Error(displayMessage)); 
-    })
-  );
-}
 
   /**
    * Predict sentiment from a single text input
    * @param text Text to analyze
    * @returns Observable with prediction result
    */
-  predictText(text: string): Observable<PredictionResponse> {
+  predictText(text: string): Observable<PredictionHistoryResponse> {
     if (this.useMockData) {
-      return mockPredictText(text);
+      return of(mockPredictText(text));
     }
     
     const endpoint = `${this.apiUrl}/predict`;
     const payload = { text };
-    return this.http.post<PredictionResponse>(endpoint, payload).pipe(
-      tap(response => console.log('Prediction response:', response))
-    );
+    return this.http.post<PredictionHistoryResponse>(endpoint, payload, { headers: this.getAuthHeaders() });
   }
 
   /**
@@ -211,84 +183,25 @@ triggerServerNotification(): Observable<NotifyResponse> {
    * @param email User's email address
    * @returns Observable with file ID for tracking
    */
-
-  // Inside the PredictionService class
-// ... (constructor, login, register, logout, isLoggedIn, mock methods, etc.) ...
-
-/**
- * Checks the subscription status of the currently logged-in user.
- * @returns Observable<CheckSubscriptionResponse>
- */
-checkCurrentUserSubscription(): Observable<CheckSubscriptionResponse> {
-  const username = this.getCurrentUsername();
-
-  if (!username) {
-      console.error("Service checkCurrentUserSubscription: Username not available. Cannot check subscription.");
-      // Return an observable that errors or emits a default "not subscribed" state
-      return throwError(() => new Error("User not logged in or username unavailable for subscription check."));
-      // Or: return of({ access: false, message: "User not identified." } as CheckSubscriptionResponse);
-  }
-
-  if (this.useMockData) {
-      console.warn(`MOCK: Checking subscription for user: ${username}`);
-      // Example mock logic
-      if (["usman", "arpan", "thausif"].includes(username)) { // Based on your subscriptions.json
-          return of({ access: true, message: "Mock: You are subscribed!" } as CheckSubscriptionResponse).pipe(delay(300));
-      } else {
-          return of({ access: false, message: "Mock: Please subscribe to access this feature." } as CheckSubscriptionResponse).pipe(delay(300));
-      }
-  }
-
-  const endpoint = `${this.apiUrl}/check-subscription`;
-  // Create HttpParams to send username as a URL query parameter
-  const params = new HttpParams().set('username', username);
-
-  console.log(`Service: Calling GET ${endpoint} with params:`, params.toString());
-
-  // Make the GET request
-  // This endpoint, as per your main.py, doesn't strictly require JWT auth if it's just looking up by username.
-  // However, if you want to ensure only a logged-in user can check *their own* status,
-  // the backend could validate that the JWT identity matches the username param.
-  // For now, assuming it works as defined in main.py (no explicit JWT protection on /check-subscription itself).
-  return this.http.get<CheckSubscriptionResponse>(endpoint, { params }).pipe(
-      tap((response: CheckSubscriptionResponse) => {
-          console.log('Service: /check-subscription API call successful. Response:', response);
-      }),
-      catchError((error: HttpErrorResponse) => {
-          console.error('Service: /check-subscription API call error:', error);
-          let displayMessage = 'Failed to check subscription status.';
-          if (error.error && (typeof error.error.message === 'string' || typeof error.error.error === 'string')) {
-              displayMessage = error.error.message || error.error.error;
-          } else if (error.message) {
-              displayMessage = error.message;
-          }
-          // return this.handleError(error); // If your generic handleError is suitable
-          return throwError(() => new Error(displayMessage));
-      })
-  );
-}
-
-// ... (rest of your service: predictText, uploadCsvForPrediction, etc.) ...
-
-  uploadCsvForPrediction(file: File, username: string, email: string): Observable<Blob> {
+  uploadCsvForPrediction(file: File): Observable<{ fileId: string, name: string, timestamp: Date }> {
+    if (this.useMockData) {
+      return mockUploadCsvFile(file);
+    }
+    
     const endpoint = `${this.apiUrl}/bulk_predict`;
     const formData = new FormData();
-    formData.append('file', file, file.name);
-    formData.append('username', username);
-    formData.append('email', email);
-
-    console.log('Form data being sent:', {
-      file: file.name,
-      username: username,
-      email: email,
-    }); // Debug log
-
-    return this.http.post(endpoint, formData, { responseType: 'blob' }).pipe(
-      tap(() => console.log('CSV upload successful')),
-      catchError((error: HttpErrorResponse) => {
-        console.error('Error uploading CSV:', error);
-        return throwError(() => new Error('Failed to upload CSV file.'));
-      })
+    formData.append('file', file);
+    
+    // Create headers without Content-Type (browser will set it for FormData)
+    const username = localStorage.getItem('username') || '';
+    const headers = new HttpHeaders({
+      'authToken': `${this.authToken || ''}`,
+      'username': username
+      // Don't set Content-Type - let browser set it automatically for FormData
+    });
+    
+    return this.http.post<any>(endpoint, formData, { headers }).pipe(
+      catchError(this.handleError)
     );
   }
 
@@ -296,7 +209,7 @@ checkCurrentUserSubscription(): Observable<CheckSubscriptionResponse> {
    * Get list of all files (both completed and pending)  
    * @returns Observable with file lists
    */
-  getFiles(): Observable<{ pendingFiles: any[], completedFiles: any[] }> {
+  getFiles(): Observable<{ pendingFiles: FilesResponse[], completedFiles: FilesResponse[] }> {
     if (this.useMockData) {
       return mockGetFiles();
     }
@@ -310,30 +223,12 @@ checkCurrentUserSubscription(): Observable<CheckSubscriptionResponse> {
    * @param fileId ID of the file to retrieve
    * @returns Observable with file data and results
    */
-  getFileDetails(fileId: string): Observable<any> {
+  getFileDetails(userId:string, fileId: string): Observable<any> {
     if (this.useMockData) {
       return mockGetFileDetails(fileId);
     }
     
-    const endpoint = `${this.apiUrl}/files/${fileId}`;
-    return this.http.get<any>(endpoint, { headers: this.getAuthHeaders() });
-  }
-
-  /**
-   * Check status of a pending file
-   * @param fileId ID of the file to check
-   * @returns Observable with current status
-   */
-  checkFileStatus(fileId: string): Observable<{ 
-    status: string; 
-    progress?: number;
-    message?: string; // Add this optional property
-  }> {
-    if (this.useMockData) {
-      return mockCheckFileStatus(fileId);
-    }
-    
-    const endpoint = `${this.apiUrl}/files/${fileId}/status`;
+    const endpoint = `${this.apiUrl}/files/${userId}/${fileId}`;
     return this.http.get<any>(endpoint, { headers: this.getAuthHeaders() });
   }
 
@@ -341,13 +236,163 @@ checkCurrentUserSubscription(): Observable<CheckSubscriptionResponse> {
    * Get user data including prediction history and files
    * @returns Observable with user data
    */
-  getUserData(): Observable<{ predictionHistory: any[], pendingFiles: any[], completedFiles: any[] }> {
+  /**
+   * Get user data including prediction history and files
+   * @returns Observable with user data
+   */
+  getUserData(userId: string): Observable<UserDataResponseWithChart> {
     if (this.useMockData) {
-      return mockGetUserData();
+      return mockGetUserData().pipe(
+        map(mockData => ({
+          username: 'testuser',
+          email: 'test@example.com',
+          totalPredictions: mockData.predictionHistory?.length || 0,
+          totalFiles: mockData.completedFiles?.length || 0,
+          predictionHistory: mockData.predictionHistory || [],
+          pendingFiles: mockData.pendingFiles || [],
+          completedFiles: (mockData.completedFiles || []).map(file => ({
+            ...file,
+            chartData: this.generateChartDataFromFile(file.data || []),
+            data: file.data || []
+          }))
+        })),
+        delay(500)
+      );
     }
     
-    const endpoint = `${this.apiUrl}/user/data`;
-    return this.http.get<any>(endpoint, { headers: this.getAuthHeaders() });
+    const endpoint = `${this.apiUrl}/user-data/${userId}`;
+    return this.http.get<any>(endpoint, { headers: this.getAuthHeaders() }).pipe(
+      map(response => {
+        // Transform the API response to match UserDataResponseWithChart interface
+        const transformedResponse: UserDataResponseWithChart = {
+          username: localStorage.getItem('username') || 'Unknown',
+          email: 'user@example.com',
+          totalPredictions: response.prediction_history?.total_predictions || 0,
+          totalFiles: response.completed_files?.total || 0,
+          predictionHistory: this.transformPredictionHistory(response.prediction_history?.predictions || []),
+          pendingFiles: (response.pending_files?.files || []).map((file: any) => ({
+            id: file.file_id || file.id,
+            name: file.filename?.replace('_pending.csv', '.csv') || file.name,
+            timestamp: file.submitted_at || file.timestamp,
+            progress: file.progress || 0,
+            status: file.status || 'pending'
+          })),
+          completedFiles: (response.completed_files?.files || []).map((file: any) => {
+            const fileData = file.sample_predictions || [];
+            return {
+              id: file.file_id || file.id,
+              name: file.filename?.replace('_completed.csv', '.csv') || file.name,
+              timestamp: file.completed_at || file.timestamp,
+              status: file.status || 'completed',
+              data: fileData,
+              chartData: this.generateChartDataFromFile(fileData)
+            };
+          })
+        };
+        
+        console.log('Transformed getUserData response:', transformedResponse);
+        return transformedResponse;
+      }),
+      catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Generate chart data from file prediction data
+   * @param fileData Array of prediction results
+   * @returns ChartData for radar/pie charts
+   */
+  private generateChartDataFromFile(fileData: any[]): ChartData {
+    if (!fileData || fileData.length === 0) {
+      return {
+        labels: [],
+        datasets: [{
+          label: 'No Data Available',
+          data: [],
+          backgroundColor: []
+        }]
+      };
+    }
+
+    // Aggregate sentiment scores across all predictions
+    const sentimentTotals: { [key: string]: number } = {};
+    const sentimentCounts: { [key: string]: number } = {};
+
+    fileData.forEach(prediction => {
+      if (prediction.sentiment_scores) {
+        prediction.sentiment_scores.forEach((score: any) => {
+          const name = score.name;
+          if (!sentimentTotals[name]) {
+            sentimentTotals[name] = 0;
+            sentimentCounts[name] = 0;
+          }
+          sentimentTotals[name] += score.value || 0;
+          sentimentCounts[name]++;
+        });
+      }
+    });
+
+    // Calculate averages
+    const labels: string[] = [];
+    const data: number[] = [];
+    const colors = [
+      'rgba(220, 53, 69, 0.8)',   // Negative/Very Negative - red
+      'rgba(255, 193, 7, 0.8)',   // Slightly Negative - amber
+      'rgba(108, 117, 125, 0.8)', // Neutral - gray
+      'rgba(13, 202, 240, 0.8)',  // Slightly Positive - info blue
+      'rgba(25, 135, 84, 0.8)',   // Positive/Very Positive - green
+    ];
+
+    // Define the order of sentiment categories
+    const sentimentOrder = ['Negative', 'Very Negative', 'Slightly Negative', 'Neutral', 'Slightly Positive', 'Positive', 'Very Positive'];
+    
+    sentimentOrder.forEach(sentiment => {
+      if (sentimentTotals[sentiment] && sentimentCounts[sentiment]) {
+        labels.push(sentiment);
+        data.push(Number((sentimentTotals[sentiment] / sentimentCounts[sentiment]).toFixed(2)));
+      }
+    });
+
+    return {
+      labels,
+      datasets: [{
+        label: 'Average Sentiment Distribution',
+        data,
+        backgroundColor: colors.slice(0, labels.length),
+        borderColor: 'rgba(179,181,198,1)',
+        borderWidth: 1
+      }]
+    };
+  }
+
+
+  /**
+   * Transform prediction history from API format to frontend format
+   * @param predictions Array of predictions from API
+   * @returns Transformed predictions array
+   */
+  private transformPredictionHistory(predictions: any[]): any[] {
+    return predictions.map(prediction => {
+      // Convert sentiment scores from decimal to percentage and normalize names
+      const transformedSentimentScores = prediction.sentiment_scores?.map((score: any) => ({
+        name: score.name.toLowerCase() === 'neutral' ? 'Neutral' : score.name,
+        value: score.value <= 1 ? Number((score.value * 100).toFixed(2)) : score.value
+      })) || [];
+
+      // Convert confidence from decimal to percentage
+      let confidence = prediction.confidence || 0;
+      if (confidence <= 1) {
+        confidence = Number((confidence * 100).toFixed(2));
+      }
+
+      return {
+        text: prediction.text,
+        final_prediction: prediction.final_prediction,
+        confidence: confidence,
+        sentiment_scores: transformedSentimentScores,
+        timestamp: new Date(prediction.timestamp || Date.now())
+      };
+    });
   }
 
   /**
@@ -360,18 +405,78 @@ checkCurrentUserSubscription(): Observable<CheckSubscriptionResponse> {
     // If using real API, the history would be saved server-side
   }
 
-  downloadFile(fileId: string): Observable<any> {
+  /**
+   * Get user's prediction history from the API
+   * @param userId User ID to fetch history for
+   * @returns Observable with prediction history
+   */
+  getPredictionHistory(userId: string): Observable<any> {
     if (this.useMockData) {
-      return of({ success: true, message: 'File downloaded successfully' }).pipe(delay(800));
+      // Use the existing mock data function
+      return mockGetUserData().pipe(
+        map(userData => ({
+          user_id: userId,
+          predictions: userData.predictionHistory || [],
+          total_predictions: userData.predictionHistory?.length || 0
+        })),
+        delay(500)
+      );
     }
-
-    const endpoint = `${this.apiUrl}/files/${fileId}/download`;
-    return this.http.get(endpoint, { responseType: 'blob', headers: this.getAuthHeaders() }).pipe(
-      tap(response => {
-        // Handle successful download
-        console.log('File downloaded successfully:', response);
+    
+    const endpoint = `${this.apiUrl}/prediction-history/${userId}`;
+    return this.http.get<any>(endpoint, { headers: this.getAuthHeaders() }).pipe(
+      map(response => {
+        // Transform the prediction history response
+        const transformedPredictions = this.transformPredictionHistory(response.predictions || []);
+        
+        return {
+          user_id: response.user_id,
+          predictions: transformedPredictions,
+          total_predictions: response.total_predictions || transformedPredictions.length
+        };
       }),
       catchError(this.handleError)
+    );
+  }
+
+  /**
+   * Download a single file
+   * @param userId User ID
+   * @param fileId File ID to download
+   * @returns Observable with blob response
+   */
+  downloadFile(userId: string, fileId: string): Observable<Blob> {
+    if (this.useMockData) {
+      return of(new Blob(['mock,data\n1,test'], { type: 'text/csv' })).pipe(delay(800));
+    }
+
+    console.log('Downloading file via API:', { userId, fileId });
+
+    // Try the main download endpoint first
+    const endpoint = `${this.apiUrl}/files/${userId}/${fileId}/download`;
+    
+    return this.http.get(endpoint, { 
+      responseType: 'blob', 
+      headers: this.getAuthHeaders() 
+    }).pipe(
+      catchError((error) => {
+        console.error('Download error:', error);
+        
+        // If it's a 404, try alternative endpoint
+        if (error.status === 404) {
+          console.log('Trying alternative download endpoint...');
+          const altEndpoint = `${this.apiUrl}/download/${userId}/${fileId}`;
+          
+          return this.http.get(altEndpoint, { 
+            responseType: 'blob', 
+            headers: this.getAuthHeaders() 
+          }).pipe(
+            catchError(this.handleError)
+          );
+        }
+        
+        return this.handleError(error);
+      })
     );
   }
 

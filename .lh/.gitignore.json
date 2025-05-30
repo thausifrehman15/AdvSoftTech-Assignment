@@ -1,0 +1,38 @@
+{
+    "sourceFile": ".gitignore",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 5,
+            "patches": [
+                {
+                    "date": 1747911941021,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                },
+                {
+                    "date": 1748258504028,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,1 +1,1 @@\n-.lh/\n\\ No newline at end of file\n+.lh/\r\n"
+                },
+                {
+                    "date": 1748258832811,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,1 +1,2 @@\n .lh/\r\n+Back\n\\ No newline at end of file\n"
+                },
+                {
+                    "date": 1748258838753,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,2 +1,2 @@\n .lh/\r\n-Back\n\\ No newline at end of file\n+Backend/app/__pycache__/\n\\ No newline at end of file\n"
+                },
+                {
+                    "date": 1748299650311,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,2 +1,3 @@\n .lh/\r\n-Backend/app/__pycache__/\n\\ No newline at end of file\n+Backend/app/__pycache__/\r\n+.l\n\\ No newline at end of file\n"
+                },
+                {
+                    "date": 1748299677607,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n@@ -1,3 +1,2 @@\n .lh/\r\n-Backend/app/__pycache__/\r\n-.lh\n\\ No newline at end of file\n+Backend/app/__pycache__/\n\\ No newline at end of file\n"
+                }
+            ],
+            "date": 1747911941021,
+            "name": "Commit-0",
+            "content": ".lh/"
+        }
+    ]
+}

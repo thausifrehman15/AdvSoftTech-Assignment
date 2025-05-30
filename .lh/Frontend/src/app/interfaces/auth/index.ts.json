@@ -1,0 +1,18 @@
+{
+    "sourceFile": "Frontend/src/app/interfaces/auth/index.ts",
+    "activeCommit": 0,
+    "commits": [
+        {
+            "activePatchIndex": 0,
+            "patches": [
+                {
+                    "date": 1747912621548,
+                    "content": "Index: \n===================================================================\n--- \n+++ \n"
+                }
+            ],
+            "date": 1747912621548,
+            "name": "Commit-0",
+            "content": "export * from './login.interface';\r\nexport * from './register.interface';"
+        }
+    ]
+}

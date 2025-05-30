@@ -1,4 +1,8 @@
 flask
+pandas
+vaderSentiment
+flask-swagger-ui
+flask-cors
+Pyjwt
 transformers
 torch
-pandas
