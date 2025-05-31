@@ -300,49 +300,24 @@ def bulk_predict():
         if "file" not in request.files:
             return jsonify({"error": "No file uploaded"}), 400
 
+        # Read and process the CSV file
         file = request.files["file"]
+        df = pd.read_csv(file)
         
-        # Check if file is selected
-        if file.filename == '':
-            return jsonify({"error": "No file selected"}), 400
-
-        # Check file type
-        if not file.filename.lower().endswith('.csv'):
-            return jsonify({"error": "Only CSV files are allowed"}), 400
-
-        # Read and validate CSV
-        try:
-            df = pd.read_csv(file)
-        except Exception as e:
-            return jsonify({"error": f"Invalid CSV file: {str(e)}"}), 400
-
-        if 'text' not in df.columns:
-            return jsonify({"error": "CSV must contain a 'text' column"}), 400
-
-        if df.empty:
-            return jsonify({"error": "CSV file is empty"}), 400
-
-        # Create user directory if it doesn't exist
-        user_dir = USER_FILES_DIR / str(user_id)  # Convert user_id to string
-        user_dir.mkdir(exist_ok=True)
-
-        # Generate unique file ID and create file paths
-        file_id = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
-        pending_file_path = user_dir / f"{file_id}_pending.csv"
-        
-        # Save the original file as pending
-        df.to_csv(pending_file_path, index=False)
+        # Convert original file to string
+        file.seek(0)
+        original_content = file.read()
 
         # Process rows and create result DataFrame
         rows = []
         for index, text in enumerate(df['text']):
             if pd.isna(text) or str(text).strip() == '':
-                continue  # Skip empty rows
+                continue
                 
             result = predict_sentiment(str(text))
             print(f"Processing row {index + 1}: {text} -> {result}")
             
-            # Convert sentiment_scores list to dictionary for easier access
+            # Convert sentiment_scores list to dictionary
             sentiment_dict = {}
             for score_item in result["sentiment_scores"]:
                 sentiment_dict[score_item["name"]] = score_item["value"]
@@ -358,20 +333,17 @@ def bulk_predict():
                 "Positive": sentiment_dict.get("Positive", 0),
             }
             rows.append(row)
-        if not rows:
-            return jsonify({"error": "No valid text data found in CSV"}), 400
 
-        # Save processed results
+        # Create processed DataFrame and convert to CSV
         result_df = pd.DataFrame(rows)
-        completed_file_path = user_dir / f"{file_id}_completed.csv"
-        result_df.to_csv(completed_file_path, index=False)
+        processed_content = result_df.to_csv(index=False).encode('utf-8')
 
-        # Delete pending file after processing is complete
-        if pending_file_path.exists():
-            pending_file_path.unlink()
+        # Generate unique file ID
+        file_id = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
 
-        # Update the database with file details
+        # Store in database
         with app.app_context():
+            # Insert file metadata
             db.session.execute(
                 sql_text("INSERT INTO files (user_id, file_id, filename, status, created_at, updated_at) VALUES (:user_id, :file_id, :filename, :status, :created_at, :updated_at)"),
                 {
@@ -381,6 +353,18 @@ def bulk_predict():
                     "status": "completed",
                     "created_at": datetime.utcnow(),
                     "updated_at": datetime.utcnow()
+                }
+            )
+
+            # Insert file content as BLOB
+            db.session.execute(
+                sql_text("INSERT INTO file_blobs (file_id, user_id, original_content, processed_content, created_at) VALUES (:file_id, :user_id, :original_content, :processed_content, :created_at)"),
+                {
+                    "file_id": file_id,
+                    "user_id": user.id,
+                    "original_content": original_content,
+                    "processed_content": processed_content,
+                    "created_at": datetime.utcnow()
                 }
             )
             db.session.commit()
@@ -399,7 +383,7 @@ def bulk_predict():
 
     except Exception as e:
         import traceback
-        traceback.print_exc()  # Print the full stack trace
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
     
 # 1. Prediction History API
@@ -489,290 +473,203 @@ def get_pending_files(user_id):
 # 3. Completed Files API
 @app.route("/my-files/<user_id>", methods=["GET"])
 def get_completed_files(user_id):
-    # Extract token and username from headers
-    token = request.headers.get("authToken")
-    username = request.headers.get("username")
 
-    if not token or not username:
-        return jsonify({"error": "Authorization token and Username are required"}), 401
-
-    # Verify the token
+    # Authentication checks...
     try:
-        decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        if decoded_token.get("username") != username:
-            return jsonify({"error": "Invalid token or username mismatch"}), 403
-    except jwt.ExpiredSignatureError:
-        return jsonify({"error": "Token has expired"}), 401
-    except jwt.InvalidTokenError:
-        return jsonify({"error": "Invalid token"}), 401
+        with app.app_context():
+            # Get completed files from database
+            result = db.session.execute(
+                sql_text("""
+                    SELECT f.file_id, f.filename, f.created_at, fb.processed_content 
+                    FROM files f 
+                    JOIN file_blobs fb ON f.file_id = fb.file_id 
+                    WHERE f.user_id = :user_id AND f.status = 'completed'
+                    ORDER BY f.created_at DESC
+                """),
+                {"user_id": user_id}
+            ).fetchall()
 
-    try:
-        user_dir = USER_FILES_DIR / user_id
-        if not user_dir.exists():
-            return jsonify({"completed_files": [], "total": 0}), 200
-            
-        completed_files = []
-        for file_path in user_dir.glob("*_completed.csv"):
-            with open(file_path, 'r') as f:
-                df = pd.read_csv(f, nrows=5)
+            completed_files = []
+            for row in result:
+                # Create DataFrame from processed content
+                content = io.StringIO(row.processed_content.decode('utf-8') if isinstance(row.processed_content, bytes) else row.processed_content)
+                df = pd.read_csv(content, nrows=5)
                 sample_predictions = df.to_dict('records')
-            
-            completed_files.append({
-                "file_id": file_path.stem.replace("_completed", ""),
-                "filename": file_path.name,
-                "completed_at": datetime.fromtimestamp(file_path.stat().st_mtime).isoformat(),
-                "sample_predictions": sample_predictions
-            })
-            
-        return jsonify({
-            "completed_files": sorted(completed_files, key=lambda x: x["completed_at"], reverse=True),
-            "total": len(completed_files)
-        }), 200
+
+                completed_files.append({
+                    "file_id": row.file_id,
+                    "filename": row.filename,
+                    "completed_at": row.created_at.isoformat(),
+                    "sample_predictions": sample_predictions
+                })
+
+            return jsonify({
+                "completed_files": completed_files,
+                "total": len(completed_files)
+            }), 200
+
     except Exception as e:
+        print(f"Error in get_completed_files: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 @app.route("/user-data/<user_id>", methods=["GET"])
 def get_user_data(user_id):
-    # Extract token and username from headers
-    token = request.headers.get("authToken")
-    username = request.headers.get("username")
-
-    if not token or not username:
-        return jsonify({"error": "Authorization token and Username are required"}), 401
-
-    # Verify the token
+    # Authentication checks...
     try:
-        decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        if decoded_token.get("username") != username:
-            return jsonify({"error": "Invalid token or username mismatch"}), 403
-    except jwt.ExpiredSignatureError:
-        return jsonify({"error": "Token has expired"}), 401
-    except jwt.InvalidTokenError:
-        return jsonify({"error": "Invalid token"}), 401
+        with app.app_context():
+            # Get completed files from database
+            files_result = db.session.execute(
+                sql_text("""
+                    SELECT f.file_id, f.filename, f.created_at, fb.processed_content 
+                    FROM files f 
+                    JOIN file_blobs fb ON f.file_id = fb.file_id 
+                    WHERE f.user_id = :user_id AND f.status = 'completed'
+                    ORDER BY f.created_at DESC
+                """),
+                {"user_id": user_id}
+            ).fetchall()
 
-    try:
-        user_dir = USER_FILES_DIR / user_id
-        response_data = {
-            "user_id": user_id,
-            "prediction_history": {
-                "predictions": [],
-                "total_predictions": 0
-            },
-            "pending_files": {
-                "files": [],
-                "total": 0
-            },
-            "completed_files": {
-                "files": [],
-                "total": 0
-            }
-        }
+            # Get predictions from database
+            predictions_result = db.session.execute(
+                sql_text("""
+                    SELECT text, final_prediction, confidence, created_at 
+                    FROM predictions 
+                    WHERE user_id = :user_id 
+                    ORDER BY created_at DESC
+                """),
+                {"user_id": user_id}
+            ).fetchall()
 
-        # Get prediction history
-        history_file = user_dir / HISTORY_FILE
-        if history_file.exists():
-            with open(history_file, 'r') as f:
-                predictions = json.load(f)
-                response_data["prediction_history"] = {
+            completed_files = []
+            for row in files_result:
+                content = io.StringIO(row.processed_content.decode('utf-8') if isinstance(row.processed_content, bytes) else row.processed_content)
+                df = pd.read_csv(content, nrows=5)
+                sample_predictions = df.to_dict('records')
+
+                completed_files.append({
+                    "file_id": row.file_id,
+                    "filename": row.filename,
+                    "completed_at": row.created_at.isoformat(),
+                    "sample_predictions": sample_predictions
+                })
+
+            predictions = [
+                {
+                    "text": row.text,
+                    "final_prediction": row.final_prediction,
+                    "confidence": row.confidence,
+                    "timestamp": row.created_at.isoformat()
+                }
+                for row in predictions_result
+            ]
+
+            response_data = {
+                "user_id": user_id,
+                "prediction_history": {
                     "predictions": predictions,
                     "total_predictions": len(predictions)
+                },
+                "completed_files": {
+                    "files": completed_files,
+                    "total": len(completed_files)
                 }
+            }
 
-        # Get pending files
-        pending_files = []
-        for file_path in user_dir.glob("*_pending.csv"):
-            pending_files.append({
-                "file_id": file_path.stem.replace("_pending", ""),
-                "filename": file_path.name,
-                "submitted_at": datetime.fromtimestamp(file_path.stat().st_mtime).isoformat()
-            })
-        response_data["pending_files"] = {
-            "files": sorted(pending_files, key=lambda x: x["submitted_at"], reverse=True),
-            "total": len(pending_files)
-        }
-
-        # Get completed files
-        completed_files = []
-        for file_path in user_dir.glob("*_completed.csv"):
-            with open(file_path, 'r') as f:
-                df = pd.read_csv(f, nrows=5)
-                sample_predictions = df.to_dict('records')
-            
-            completed_files.append({
-                "file_id": file_path.stem.replace("_completed", ""),
-                "filename": file_path.name,
-                "completed_at": datetime.fromtimestamp(file_path.stat().st_mtime).isoformat(),
-                "sample_predictions": sample_predictions
-            })
-        response_data["completed_files"] = {
-            "files": sorted(completed_files, key=lambda x: x["completed_at"], reverse=True),
-            "total": len(completed_files)
-        }
-
-        return jsonify(response_data), 200
+            return jsonify(response_data), 200
 
     except Exception as e:
+        print(f"Error in get_user_data: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 @app.route("/files/<user_id>/<file_id>", methods=["GET"])
 def get_file_data(user_id, file_id):
-    # Extract token and username from headers
-    token = request.headers.get("authToken")
-    username = request.headers.get("username")
-
-    if not token or not username:
-        return jsonify({"error": "Authorization token and Username are required"}), 401
-
-    # Verify the token
+    # Authentication checks...
     try:
-        decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        if decoded_token.get("username") != username:
-            return jsonify({"error": "Invalid token or username mismatch"}), 403
-    except jwt.ExpiredSignatureError:
-        return jsonify({"error": "Token has expired"}), 401
-    except jwt.InvalidTokenError:
-        return jsonify({"error": "Invalid token"}), 401
+        with app.app_context():
+            # Get file from database
+            result = db.session.execute(
+                sql_text("""
+                    SELECT f.filename, fb.processed_content 
+                    FROM files f 
+                    JOIN file_blobs fb ON f.file_id = fb.file_id 
+                    WHERE f.file_id = :file_id AND f.user_id = :user_id
+                """),
+                {"file_id": file_id, "user_id": user_id}
+            ).fetchone()
 
-    try:
-        user_dir = USER_FILES_DIR / user_id
-        file_path = user_dir / f"{file_id}_completed.csv"
+            if not result:
+                return jsonify({
+                    "error": "File not found",
+                    "message": "The requested file does not exist"
+                }), 404
 
-        if not file_path.exists():
-            return jsonify({
-                "error": "File not found",
-                "message": "The requested file does not exist"
-            }), 404
+            filename, content = result
 
-        # Read the CSV file
-        df = pd.read_csv(file_path, nrows=10)  # Read only first 10 rows
-        
-        file_data = {
-            "file_id": file_id,
-            "filename": file_path.name,
-            "total_rows_shown": len(df),
-            "columns": list(df.columns),
-            "data": df.to_dict('records')
-        }
+            # Convert content to DataFrame
+            content_str = content.decode('utf-8') if isinstance(content, bytes) else content
+            df = pd.read_csv(io.StringIO(content_str), nrows=10)
 
-        return jsonify(file_data), 200
+            file_data = {
+                "file_id": file_id,
+                "filename": filename,
+                "total_rows_shown": len(df),
+                "columns": list(df.columns),
+                "data": df.to_dict('records')
+            }
+
+            return jsonify(file_data), 200
 
     except Exception as e:
+        print(f"Error in get_file_data: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 @app.route("/files/<user_id>/<file_id>/download", methods=["GET"])
 def download_file(user_id, file_id):
-    # Extract token and username from headers
-    token = request.headers.get("authToken")
-    username = request.headers.get("username")
-
-    if not token or not username:
-        return jsonify({"error": "Authorization token and Username are required"}), 401
-
-    # Verify the token
     try:
-        decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        if decoded_token.get("username") != username:
-            return jsonify({"error": "Invalid token or username mismatch"}), 403
-    except jwt.ExpiredSignatureError:
-        return jsonify({"error": "Token has expired"}), 401
-    except jwt.InvalidTokenError:
-        return jsonify({"error": "Invalid token"}), 401
+        # Get file content from database
+        with app.app_context():
+            result = db.session.execute(
+                sql_text("""
+                    SELECT f.filename, fb.processed_content 
+                    FROM files f 
+                    JOIN file_blobs fb ON f.file_id = fb.file_id 
+                    WHERE f.file_id = :file_id AND f.user_id = :user_id
+                """),
+                {"file_id": file_id, "user_id": user_id}
+            ).fetchone()
 
-    try:
-        user_dir = USER_FILES_DIR / user_id
-        
-        # Debug: Print the file_id and user_dir
-        print(f"Looking for file_id: {file_id}")
-        print(f"User directory: {user_dir}")
-        print(f"User directory exists: {user_dir.exists()}")
-        
-        # Try different file path patterns
-        possible_paths = [
-            user_dir / f"{file_id}_completed.csv",
-            user_dir / f"{file_id}.csv_completed.csv",  # Alternative pattern
-            user_dir / file_id  # Direct file name
-        ]
-        
-        file_path = None
-        for path in possible_paths:
-            print(f"Checking path: {path}")
-            print(f"Path exists: {path.exists()}")
-            if path.exists():
-                file_path = path
-                break
-        
-        # If no direct match, search for files containing the file_id
-        if not file_path:
-            print(f"Direct paths not found, searching in directory...")
-            if user_dir.exists():
-                for existing_file in user_dir.glob("*_completed.csv"):
-                    print(f"Found completed file: {existing_file.name}")
-                    # Check if file_id is part of the filename
-                    if file_id in existing_file.name:
-                        file_path = existing_file
-                        break
+            if not result:
+                return jsonify({
+                    "error": "File not found",
+                    "message": "The requested file does not exist"
+                }), 404
 
-        if not file_path or not file_path.exists():
-            # List all files in user directory for debugging
-            if user_dir.exists():
-                print(f"Files in user directory:")
-                for f in user_dir.iterdir():
-                    print(f"  - {f.name}")
+            filename, content = result
+
+            # Create BytesIO object from the content
+            file_stream = io.BytesIO(content)
+
+            # Clean filename
+            original_filename = Path(filename).stem
+            if original_filename.endswith('_completed'):
+                original_filename = original_filename[:-10]
             
-            return jsonify({
-                "error": "File not found",
-                "message": f"The requested file '{file_id}' does not exist",
-                "debug": f"Searched in: {user_dir}"
-            }), 404
+            clean_filename = original_filename.replace(' ', '_')
+            if not clean_filename.endswith('.csv'):
+                clean_filename += '.csv'
 
-        print(f"Found file at: {file_path}")
-        print(f"Absolute path: {file_path.absolute()}")
-        print(f"File exists check: {file_path.exists()}")
-        print(f"File is file: {file_path.is_file()}")
-
-        # Convert to absolute path to avoid path issues
-        absolute_file_path = file_path.resolve()
-        print(f"Resolved absolute path: {absolute_file_path}")
-
-        # Verify the file actually exists before sending
-        if not absolute_file_path.exists():
-            return jsonify({
-                "error": "File not accessible",
-                "message": f"File exists but cannot be accessed: {absolute_file_path}"
-            }), 500
-
-        # Extract clean filename for download
-        original_filename = file_path.stem
-        # Remove _completed suffix
-        if original_filename.endswith('_completed'):
-            original_filename = original_filename[:-10]  # Remove '_completed'
-        
-        # Remove timestamp prefix if present (e.g., "20250528_232854_")
-        if '_' in original_filename:
-            parts = original_filename.split('_')
-            if len(parts) >= 3 and len(parts[0]) == 8 and len(parts[1]) == 6:
-                # Remove first two parts (date and time)
-                original_filename = '_'.join(parts[2:])
-        
-        # Clean filename - remove problematic characters
-        original_filename = original_filename.replace(' - Copy (2)', '_Copy_2')
-        original_filename = original_filename.replace(' ', '_')
-        original_filename = original_filename.replace('(', '_')
-        original_filename = original_filename.replace(')', '_')
-        
-        # Ensure .csv extension
-        if not original_filename.endswith('.csv'):
-            original_filename += '.csv'
-
-        print(f"Sending file with name: predictions_{original_filename}")
-
-        # Use string path instead of Path object for send_file
-        return send_file(
-            str(absolute_file_path),  # Convert to string
-            as_attachment=True,
-            download_name=f"predictions_{original_filename}",
-            mimetype='text/csv'
-        )
+            return send_file(
+                file_stream,
+                mimetype='text/csv',
+                as_attachment=True,
+                download_name=f"predictions_{clean_filename}"
+            )
 
     except Exception as e:
         print(f"Download error: {str(e)}")
