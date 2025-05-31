@@ -424,8 +424,6 @@ export class DashboardComponent implements OnInit {
             timestamp: new Date(),
           };
 
-          console.log('Processed prediction:', prediction);
-
           // Save prediction to history via API
           this.predictionService.savePredictionToHistory(prediction);
 
@@ -1205,7 +1203,6 @@ export class DashboardComponent implements OnInit {
 
   get hasBulkAccess(): boolean {
     const hasAccess = this.subscriptionService.hasBulkAccess();
-    console.log('Dashboard hasBulkAccess check:', hasAccess);
     return hasAccess;
   }
 

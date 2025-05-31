@@ -44,7 +44,6 @@ export class SubscriptionService {
     this.http.get(`${apiUrl}/check-subscription?username=${username}`)
       .subscribe({
         next: (response: any) => {
-          console.log('Backend subscription check response:', response);
           this.backendSubscriptionStatus = response.access || false;
           
           // Update local subscription based on backend
@@ -116,12 +115,6 @@ export class SubscriptionService {
   hasBulkAccess(): boolean {
     // Check both frontend state and backend status
     const frontendAccess = this.currentSubscription === 'pro';
-    console.log('Bulk access check:', {
-      frontendSubscription: this.currentSubscription,
-      frontendAccess: frontendAccess,
-      backendStatus: this.backendSubscriptionStatus,
-      finalAccess: frontendAccess && this.backendSubscriptionStatus
-    });
     
     return frontendAccess && this.backendSubscriptionStatus;
   }
@@ -152,7 +145,7 @@ export class SubscriptionService {
         subscribed: status
       }).subscribe({
         next: (response) => {
-          console.log('Backend subscription updated:', response);
+          //console.log('Backend subscription updated successfully:', response);
         },
         error: (error) => {
           console.error('Error updating backend subscription:', error);
