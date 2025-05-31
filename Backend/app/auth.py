@@ -1,12 +1,18 @@
 import json
 import os
 import uuid
+import sys
 from pathlib import Path
 from typing import Tuple, Dict
 from werkzeug.security import generate_password_hash, check_password_hash
+from flask import current_app
+
+
+# Add the parent directory to sys.path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+from Database.models import User, db
 
 USERS_FILE = "users.json"
-
 def load_users():
     if not os.path.exists(USERS_FILE):
         return {}
@@ -19,70 +25,42 @@ def save_users(users):
 
 def register_user(username: str, password: str, email: str) -> Tuple[bool, str, Dict]:
     try:
-        # Create users.json if it doesn't exist
-        users_file = Path(USERS_FILE)
-        if not users_file.exists():
-            users_file.write_text('{}')
+        # Ensure app context is active
+        with current_app.app_context():
+            # Check if user already exists
+            existing_user = User.query.filter_by(username=username).first()
+            if existing_user:
+                return False, "Username already exists", None
 
-        # Load existing users
-        with open(users_file, 'r') as f:
-            users = json.load(f)
+            existing_email = User.query.filter_by(email=email).first()
+            if existing_email:
+                return False, "Email already exists", None
 
-        # Check if username already exists
-        if username in users:
-            return False, "Username already exists", {}
+            # Create new user
+            hashed_password = generate_password_hash(password, method="pbkdf2:sha256")
+            new_user = User(username=username, email=email, password=hashed_password)
+            db.session.add(new_user)
+            db.session.commit()
 
-        # Create new user with UUID
-        user_id = str(uuid.uuid4())
-        users[username] = {
-            'id': user_id,
-            'username': username,
-            'password': password,  # In production, hash this password
-            'email': email
-        }
-
-        # Save updated users
-        with open(users_file, 'w') as f:
-            json.dump(users, f, indent=4)
-
-        # Return success with user data
-        user_data = {
-            'id': user_id,
-            'username': username,
-            'email': email
-        }
-        return True, "User registered successfully", user_data
-
+            return True, "User registered successfully", {
+                "id": new_user.id,
+                "username": new_user.username,
+                "email": new_user.email
+            }
     except Exception as e:
-        print(f"Registration error: {str(e)}")
-        return False, f"Registration failed: {str(e)}", {}
+        return False, f"Error: {str(e)}", None
 
-def login_user(username: str, password: str) -> tuple[bool, str, dict]:
+def login_user(username: str, password: str) -> Tuple[bool, str, Dict]:
     try:
-        users_file = Path('users.json')
-        if not users_file.exists():
-            return False, "No users found", {}
+        # Find user by username
+        user = User.query.filter_by(username=username).first()
+        if not user or not check_password_hash(user.password, password):
+            return False, "Invalid username or password", None
 
-        with open(users_file, 'r') as f:
-            users = json.load(f)
-
-        # Debug logging
-        print(f"Users in database: {users}")
-
-        if username not in users:
-            return False, "User not found", {}
-
-        stored_user = users[username]
-        if stored_user['password'] != password:  # In production, use proper password hashing
-            return False, "Invalid password", {}
-
-        user_data = {
-            'id': stored_user.get('id', str(uuid.uuid4())),
-            'username': username,
-            'email': stored_user.get('email', '')
+        return True, "Login successful", {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email
         }
-        return True, "Login successful", user_data
-
     except Exception as e:
-        print(f"Login error: {str(e)}")
-        return False, f"Login failed: {str(e)}", {}
+        return False, f"Error: {str(e)}", None
