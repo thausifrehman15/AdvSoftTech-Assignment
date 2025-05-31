@@ -12,17 +12,6 @@ from flask import current_app
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from Database.models import User, db
 
-USERS_FILE = "users.json"
-def load_users():
-    if not os.path.exists(USERS_FILE):
-        return {}
-    with open(USERS_FILE, "r") as f:
-        return json.load(f)
-
-def save_users(users):
-    with open(USERS_FILE, "w") as f:
-        json.dump(users, f, indent=2)
-
 def register_user(username: str, password: str, email: str) -> Tuple[bool, str, Dict]:
     try:
         # Ensure app context is active
