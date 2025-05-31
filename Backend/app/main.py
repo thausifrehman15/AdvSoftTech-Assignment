@@ -6,12 +6,11 @@ from app.email_utils import send_email_with_attachment  # ✅ NEW
 import pandas as pd
 import io
 import requests  # ✅ For internal API call
-import json
 from flask_swagger_ui import get_swaggerui_blueprint
 import jwt
 from datetime import datetime, timedelta
-from pathlib import Path
 from flask_cors import CORS  # Add CORS support
+import json
 
 import sys
 import os
@@ -43,12 +42,6 @@ app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 
 SECRET_KEY = 'your_secret_key'  # This should be securely stored in your config
 
-HISTORY_FILE = "prediction_history.json"
-USER_FILES_DIR = Path("user_files")
-
-# Create directory if it doesn't exist
-USER_FILES_DIR.mkdir(exist_ok=True)
-
 # Helper function to generate JWT token
 def create_token(user_id, username, email):
     expiration_time = datetime.utcnow() + timedelta(hours=1)  # Token expires in 1 hour
@@ -71,16 +64,29 @@ def predict():
         if not token or not username:
             return jsonify({"error": "Authorization required"}), 401
 
-        # Verify token
+        # Verify token 
         try:
+            # Remove any 'Bearer ' prefix if present
+            token = token.replace('Bearer ', '')
+            
             decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-            if decoded_token.get("username") != username:
-                return jsonify({"error": "Invalid token"}), 403
-            user_id = str(decoded_token.get("user_id"))  # Convert user_id to string
+            
+            # Check if token contains required fields
+            if not decoded_token.get("username") or not decoded_token.get("user_id"):
+                return jsonify({"error": "Invalid token format"}), 403
+                
+            # Compare usernames case-insensitively
+            if decoded_token.get("username").lower() != username.lower():
+                return jsonify({"error": "Username mismatch"}), 403
+                
+            user_id = str(decoded_token.get("user_id"))
+            
         except jwt.ExpiredSignatureError:
             return jsonify({"error": "Token expired"}), 401
         except jwt.InvalidTokenError:
             return jsonify({"error": "Invalid token"}), 401
+        except Exception as e:
+            return jsonify({"error": f"Token validation error: {str(e)}"}), 401
 
         # Get prediction data
         data = request.get_json()
@@ -90,47 +96,42 @@ def predict():
         text_input = data["text"]
         result = predict_sentiment(text_input)
 
-        # Create user directory if it doesn't exist
-        user_dir = USER_FILES_DIR / user_id  # Ensure user_id is a string
-        user_dir.mkdir(exist_ok=True)
-        
-        history_file = user_dir / HISTORY_FILE
-
-        # Load existing predictions
-        try:
-            with open(history_file, "r") as f:
-                predictions = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            predictions = []
-
-        # Add new prediction to user's history
-        predictions.insert(0, result)
-
-        # Save updated predictions
-        with open(history_file, "w") as f:
-            json.dump(predictions, f, indent=4)
-
-        # Update the database with the prediction result
+        # Save prediction to the database
         with app.app_context():
             user = User.query.filter_by(id=user_id).first()
             if not user:
                 return jsonify({"error": "User not found"}), 404
 
-            # Save prediction to the database
+            # Convert sentiment scores to string for storage
+            sentiment_scores_json = json.dumps(result["sentiment_scores"])
+
             prediction_entry = {
                 "user_id": user.id,
                 "text": text_input,
                 "final_prediction": result["final_prediction"],
                 "confidence": result["confidence"],
-                "created_at": datetime.utcnow()  # Use created_at instead of timestamp
+                "sentiment_scores": sentiment_scores_json,  # Add this
+                "created_at": datetime.utcnow()
             }
+            
             db.session.execute(
-                sql_text("INSERT INTO predictions (user_id, text, final_prediction, confidence, created_at) VALUES (:user_id, :text, :final_prediction, :confidence, :created_at)"),
+                sql_text("""
+                    INSERT INTO predictions 
+                    (user_id, text, final_prediction, confidence, sentiment_scores, created_at) 
+                    VALUES 
+                    (:user_id, :text, :final_prediction, :confidence, :sentiment_scores, :created_at)
+                """),
                 prediction_entry
             )
             db.session.commit()
 
-        return jsonify(result)
+        return jsonify({
+            "text": text_input,
+            "final_prediction": result["final_prediction"],
+            "confidence": result["confidence"],
+            "sentiment_scores": result["sentiment_scores"],
+            "timestamp": datetime.utcnow().isoformat()
+        })
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -389,45 +390,54 @@ def bulk_predict():
 # 1. Prediction History API
 @app.route("/prediction-history/<user_id>", methods=["GET"])
 def get_prediction_history(user_id):
-    # Extract token and username from headers
-    token = request.headers.get("authToken")
-    username = request.headers.get("username")
-
-    if not token or not username:
-        return jsonify({"error": "Authorization token and Username are required"}), 401
-
-    # Verify the token
     try:
-        decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-        if decoded_token.get("username") != username:
-            return jsonify({"error": "Invalid token or username mismatch"}), 403
-    except jwt.ExpiredSignatureError:
-        return jsonify({"error": "Token has expired"}), 401
-    except jwt.InvalidTokenError:
-        return jsonify({"error": "Invalid token"}), 401
+        # Extract token and username from headers
+        token = request.headers.get("authToken")
+        username = request.headers.get("username")
 
-    try:
-        user_dir = USER_FILES_DIR / user_id
-        history_file = user_dir / "prediction_history.json"
+        if not token or not username:
+            return jsonify({"error": "Authorization token and Username are required"}), 401
 
-        if not history_file.exists():
+        # Verify the token
+        try:
+            decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+            if decoded_token.get("username") != username:
+                return jsonify({"error": "Invalid token or username mismatch"}), 403
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "Token has expired"}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"error": "Invalid token"}), 401
+
+        # Fetch prediction history from the database
+        with app.app_context():
+            predictions_result = db.session.execute(
+                sql_text("""
+                    SELECT text, final_prediction, confidence, sentiment_scores, created_at 
+                    FROM predictions 
+                    WHERE user_id = :user_id 
+                    ORDER BY created_at DESC
+                """),
+                {"user_id": user_id}
+            ).fetchall()
+
+            predictions = [
+                {
+                    "text": row.text,
+                    "final_prediction": row.final_prediction,
+                    "confidence": row.confidence,
+                    "sentiment_scores": json.loads(row.sentiment_scores) if row.sentiment_scores else [],
+                    "timestamp": row.created_at.isoformat()
+                }
+                for row in predictions_result
+            ]
+
             return jsonify({
-                "user_id": user_id,
-                "predictions": [],
-                "total_predictions": 0
+                "predictions": predictions,
+                "total_predictions": len(predictions)
             }), 200
 
-        with open(history_file, 'r') as f:
-            predictions = json.load(f)
-        
-        response = {
-            "user_id": user_id,
-            "predictions": predictions,
-            "total_predictions": len(predictions)
-        }
-        
-        return jsonify(response), 200
     except Exception as e:
+        print(f"Error fetching prediction history: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 # 2. Pending Files API
@@ -451,23 +461,31 @@ def get_pending_files(user_id):
         return jsonify({"error": "Invalid token"}), 401
 
     try:
-        user_dir = USER_FILES_DIR / user_id
-        if not user_dir.exists():
-            return jsonify({"pending_files": [], "total": 0}), 200
+        with app.app_context():
+            # Get pending files from database
+            result = db.session.execute(
+                sql_text("""
+                    SELECT file_id, filename, created_at
+                    FROM files 
+                    WHERE user_id = :user_id AND status = 'pending'
+                    ORDER BY created_at DESC
+                """),
+                {"user_id": user_id}
+            ).fetchall()
+
+            pending_files = [{
+                "file_id": row.file_id,
+                "filename": row.filename,
+                "submitted_at": row.created_at.isoformat()
+            } for row in result]
             
-        pending_files = []
-        for file_path in user_dir.glob("*_pending.csv"):
-            pending_files.append({
-                "file_id": file_path.stem.replace("_pending", ""),
-                "filename": file_path.name,
-                "submitted_at": datetime.fromtimestamp(file_path.stat().st_mtime).isoformat()
-            })
-            
-        return jsonify({
-            "pending_files": sorted(pending_files, key=lambda x: x["submitted_at"], reverse=True),
-            "total": len(pending_files)
-        }), 200
+            return jsonify({
+                "pending_files": pending_files,
+                "total": len(pending_files)
+            }), 200
+
     except Exception as e:
+        print(f"Error getting pending files: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 # 3. Completed Files API
@@ -475,6 +493,23 @@ def get_pending_files(user_id):
 def get_completed_files(user_id):
 
     # Authentication checks...
+    token = request.headers.get("authToken")
+    username = request.headers.get("username")
+
+    if not token or not username:
+        return jsonify({"error": "Authorization token and Username are required"}), 401
+
+    # Verify the token
+    try:
+        decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        if decoded_token.get("username") != username:
+            return jsonify({"error": "Invalid token or username mismatch"}), 403
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token has expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    # Rest of the function remains the same...
     try:
         with app.app_context():
             # Get completed files from database
@@ -516,9 +551,49 @@ def get_completed_files(user_id):
 
 @app.route("/user-data/<user_id>", methods=["GET"])
 def get_user_data(user_id):
-    # Authentication checks...
+    # Add token validation
+    token = request.headers.get("authToken")
+    username = request.headers.get("username")
+
+    if not token or not username:
+        return jsonify({"error": "Authorization token and Username are required"}), 401
+
+    # Verify the token
+    try:
+        decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        if decoded_token.get("username") != username:
+            return jsonify({"error": "Invalid token or username mismatch"}), 403
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token has expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    # Rest of the function remains the same...
     try:
         with app.app_context():
+            # Update SQL query to include sentiment_scores
+            predictions_result = db.session.execute(
+                sql_text("""
+                    SELECT id, text, final_prediction, confidence, sentiment_scores, created_at 
+                    FROM predictions 
+                    WHERE user_id = :user_id 
+                    ORDER BY created_at DESC
+                """),
+                {"user_id": user_id}
+            ).fetchall()
+
+            predictions = [
+                {
+                    "id": row.id,
+                    "text": row.text,
+                    "final_prediction": row.final_prediction,
+                    "confidence": row.confidence,
+                    "sentiment_scores": json.loads(row.sentiment_scores) if row.sentiment_scores else [],
+                    "timestamp": row.created_at.isoformat()
+                }
+                for row in predictions_result
+            ]
+
             # Get completed files from database
             files_result = db.session.execute(
                 sql_text("""
@@ -531,19 +606,9 @@ def get_user_data(user_id):
                 {"user_id": user_id}
             ).fetchall()
 
-            # Get predictions from database
-            predictions_result = db.session.execute(
-                sql_text("""
-                    SELECT text, final_prediction, confidence, created_at 
-                    FROM predictions 
-                    WHERE user_id = :user_id 
-                    ORDER BY created_at DESC
-                """),
-                {"user_id": user_id}
-            ).fetchall()
-
             completed_files = []
             for row in files_result:
+                # Create DataFrame from processed content
                 content = io.StringIO(row.processed_content.decode('utf-8') if isinstance(row.processed_content, bytes) else row.processed_content)
                 df = pd.read_csv(content, nrows=5)
                 sample_predictions = df.to_dict('records')
@@ -554,16 +619,6 @@ def get_user_data(user_id):
                     "completed_at": row.created_at.isoformat(),
                     "sample_predictions": sample_predictions
                 })
-
-            predictions = [
-                {
-                    "text": row.text,
-                    "final_prediction": row.final_prediction,
-                    "confidence": row.confidence,
-                    "timestamp": row.created_at.isoformat()
-                }
-                for row in predictions_result
-            ]
 
             response_data = {
                 "user_id": user_id,
@@ -587,7 +642,24 @@ def get_user_data(user_id):
 
 @app.route("/files/<user_id>/<file_id>", methods=["GET"])
 def get_file_data(user_id, file_id):
-    # Authentication checks...
+    # Add token validation
+    token = request.headers.get("authToken")
+    username = request.headers.get("username")
+
+    if not token or not username:
+        return jsonify({"error": "Authorization token and Username are required"}), 401
+
+    # Verify the token
+    try:
+        decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        if decoded_token.get("username") != username:
+            return jsonify({"error": "Invalid token or username mismatch"}), 403
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token has expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    # Rest of the function remains the same...
     try:
         with app.app_context():
             # Get file from database
