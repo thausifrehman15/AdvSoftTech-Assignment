@@ -1,5 +1,6 @@
 backend: 
-Download the model from here: https://huggingface.co/nlptown/bert-base-multilingual-uncased-sentiment/tree/main 
+# run requriements
+python requirements.txt
 use this command to start the application: python run.py
 
 frontend: (get into the directory)

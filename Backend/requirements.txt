@@ -6,3 +6,4 @@ flask-cors
 Pyjwt
 transformers
 torch
+Flask-SQLAlchemy
