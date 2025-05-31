@@ -36,7 +36,6 @@ export interface PredictionRequest {
 }
 
 
-
 export interface FileUploadResponse {
   fileId: string;
   name: string;
@@ -89,8 +88,4 @@ export interface UserDataResponseWithChart {
   predictionHistory: PredictionHistoryResponse[];
   pendingFiles: FilesResponse[];
   completedFiles: FilesResponseWithChart[]; // Use the new interface
-}
-
-export interface NotifyResponse {
-  message: string;
 }

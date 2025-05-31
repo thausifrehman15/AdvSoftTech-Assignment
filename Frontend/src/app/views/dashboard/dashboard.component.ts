@@ -35,7 +35,6 @@ import { ChartOptions } from 'chart.js';
 import {   SAMPLE_PREDICTION_HISTORY,SAMPLE_CSV_FILES,SAMPLE_PENDING_FILES,SAMPLE_MY_FILES} from './datafiles';
 import { PredictionService } from './prediction.service';
 import { SubscriptionService } from '../../services/subscription.service';
-import { CheckSubscriptionResponse } from './check-subscription-response.interface';
 import { filter, interval, Subscription, takeWhile } from 'rxjs';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { FilesResponse, FilesResponseWithChart, PredictionHistoryResponse, UserDataResponse, UserDataResponseWithChart } from './prediction.interface';
@@ -93,13 +92,6 @@ export class DashboardComponent implements OnInit {
   public historyCurrentPage: number = 0;
   public selectedCategories: any[] = [];
   public showCategoryModal: boolean = false;
-
-  public isUserSubscribed: boolean = false; // NEW property to track subscription
-  public loggedInUsername: string | null = null; // NEW property to store username
-  public userEmailForBulk: string = ''; // Property to bind to an email input for bulk
-                                        // (Or get email associated with loggedInUsername if available)
-  public isLoadingBulkUpload: boolean = false; // Specific loading for bulk
-
   public isLoadingPageData: boolean = false;
   public currentFileData: any[] = [];
   public currentFilePagination: any = null;
@@ -236,8 +228,6 @@ export class DashboardComponent implements OnInit {
         // Force change detection to update UI without full reload
         this.cdr.detectChanges();
       });
-
-    
 
     // Get user ID for API calls
     const userId =
@@ -425,36 +415,14 @@ export class DashboardComponent implements OnInit {
           if (!confidence && categories.length > 0) {
             confidence = Math.max(...categories.map((c) => c.value));
           }
-      next: (result) => {
-        const categories = result.sentiment_scores
-          ? Object.entries(result.sentiment_scores).map(([name, value]) => ({
-              name: name === 'neutral' ? 'Neutral' : name,
-              value: typeof value === 'number' ? Number((value * 100).toFixed(2)) : 0,
-            }))
-          : [];
 
-        const confidence =
-          result.sentiment_scores &&
-          result.final_prediction &&
-          result.final_prediction in result.sentiment_scores
-            ? Number(((Number(result.sentiment_scores[result.final_prediction as keyof typeof result.sentiment_scores]) || 0) * 100).toFixed(2))
-            : 0;
-
-          const processedPrediction = {
+          const prediction = {
             text: textValue,
             final_prediction: response.final_prediction,
             confidence: confidence,
             sentiment_scores: categories,
             timestamp: new Date(),
           };
-        const prediction = {
-          text: textValue,
-          result: result.final_prediction || 'Unknown',
-          confidence: confidence,
-          categories: categories,
-          timestamp: new Date(),
-          rawResponse: result,
-        };
 
           console.log('Processed prediction:', prediction);
 
@@ -498,13 +466,7 @@ export class DashboardComponent implements OnInit {
 
               // Fallback: add prediction to local history if API call fails
               this.singlePredictionHistory.unshift(prediction);
-              this.lastSinglePrediction = {
-                text: prediction.text,
-                final_prediction: prediction.result,
-                confidence: prediction.confidence,
-                sentiment_scores: prediction.categories,
-                timestamp: prediction.timestamp,
-              };
+              this.lastSinglePrediction = prediction;
               this.selectedHistoryItem = prediction;
               this.historyCurrentPage = 0;
               this._cachedChartData = null;
@@ -568,7 +530,7 @@ export class DashboardComponent implements OnInit {
    */
   deleteCsvFile(fileId: string, event: Event): void {
     // Stop the event from propagating (to prevent tab selection)
-    // Stop event propagation to prevent tab selectionr
+    // Stop event propagation to prevent tab selection
     event.stopPropagation();
 
     // Find and remove the file
@@ -599,60 +561,10 @@ export class DashboardComponent implements OnInit {
     }
   }
 
-  // Basic CSV parser (you might want to use a library for more complex CSVs)
-  parseCsvData(csv: string): any[] {
-    const lines = csv.split('\n');
-    const headers = lines[0].split(',');
-    const result: any[] = [];
-
-    for (let i = 1; i < lines.length; i++) {
-      if (lines[i].trim() === '') continue;
-
-      const obj: any = {};
-      const currentLine = lines[i].split(',');
-
-      for (let j = 0; j < headers.length; j++) {
-        obj[headers[j].trim()] = currentLine[j]?.trim();
-      }
-
-      result.push(obj);
-    }
-
-    return result;
-  }
-
-  // Generate chart data from CSV
-  generateChartDataFromCsv(csvData: any[]): ChartData {
-    // Simplified example
-    const firstRow = csvData[0];
-    if (!firstRow) return { labels: [], datasets: [] };
-
-    const keys = Object.keys(firstRow);
-    const labels = keys.slice(1); // Assuming first column is label
-
-    return {
-      labels,
-      datasets: [
-        {
-          label: 'CSV Data',
-          backgroundColor: 'rgba(75,192,192,0.2)',
-          borderColor: 'rgba(75,192,192,1)',
-          pointBackgroundColor: 'rgba(75,192,192,1)',
-          pointBorderColor: '#fff',
-          pointHoverBackgroundColor: '#fff',
-          pointHoverBorderColor: 'rgba(75,192,192,1)',
-          data: csvData.map((row) => parseFloat(row[keys[1]])),
-        },
-      ],
-    };
-  }
-
   predictCsvFile(): void {
-    console.log('predictCsvFile method triggered'); // Debug log
     const file = this.fileUploadForm.get('csvFile')?.value;
 
     if (!file) {
-      console.error('No file selected'); // Debug log
       alert('Please select a file first');
       return;
     }
@@ -682,8 +594,6 @@ export class DashboardComponent implements OnInit {
 
         // Start polling for this specific file
         this.pollFileStatus(response.fileId);
-        console.log('File upload successful'); // Debug log
-        // Removed file download logic
       },
       error: (error) => {
         console.error('Error uploading file:', error);

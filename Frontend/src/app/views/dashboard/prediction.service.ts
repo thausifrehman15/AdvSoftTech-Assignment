@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders, HttpErrorResponse, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, of, throwError } from 'rxjs';
 import { catchError, delay, map, tap } from 'rxjs/operators';
 import { environment } from '../../environment/environment';
@@ -24,36 +24,6 @@ export class PredictionService {
     this.authToken = localStorage.getItem('authToken');
   }
 
-  // Inside the PredictionService class
-// ...
-
-
-
-// Helper to get the current username (you might need to adapt this)
-getCurrentUsername(): string | null {
-  const token = this.authToken; // Assumes this.authToken is loaded in constructor or by login
-  if (token) {
-      try {
-          // Simple (and insecure for validation) JWT payload decoding:
-          // This decodes the payload part (middle part) of a JWT.
-          // A proper JWT library (like jwt-decode) is better for robust decoding.
-          // The 'sub' claim is standard for the subject/identity.
-          const payloadBase64 = token.split('.')[1];
-          const decodedPayload = JSON.parse(atob(payloadBase64));
-          console.log("Service getCurrentUsername: Decoded JWT payload:", decodedPayload);
-          return decodedPayload.sub; // 'sub' usually holds the username/identity
-      } catch (e) {
-          console.error("Service getCurrentUsername: Error decoding token, or token invalid:", e);
-          // Fallback or if username was stored separately:
-          // return localStorage.getItem('loggedInUsername'); 
-          return null;
-      }
-  }
-  // Fallback if no token
-  // return localStorage.getItem('loggedInUsername'); 
-  return null;
-}
-
   // Authentication methods
   login(username: string, password: string): Observable<any> {
     if (this.useMockData) {
@@ -63,7 +33,6 @@ getCurrentUsername(): string | null {
     const endpoint = `${this.apiUrl}/login`;
     return this.http.post<any>(endpoint, { username, password }).pipe(
       tap(response => {
-        console.log('Login response:', response); // Log the full response
         if (response && response.token) {
           this.authToken = response.token;
             localStorage.setItem('authToken', response.token);
@@ -72,10 +41,7 @@ getCurrentUsername(): string | null {
             }
         }
       }),
-      catchError(error => {
-        console.error('Login error:', error);
-        return throwError(() => new Error('Login failed. Please try again.'));
-      })
+      catchError(this.handleError)
     );
   }
 
@@ -96,12 +62,8 @@ getCurrentUsername(): string | null {
     localStorage.removeItem('authToken');
   }
 
-  //changed the 
   isLoggedIn(): boolean {
-    this.authToken = localStorage.getItem('authToken'); // Ensure it's fresh
-    const loggedIn = !!this.authToken;
-    console.log(`Service ISLOGGEDIN: authToken from localStorage: '${this.authToken}', Result: ${loggedIn}`);
-    return loggedIn;
+    return !!this.authToken;
   }
 
   private mockLogin(username: string, password: string): Observable<any> {
@@ -145,9 +107,16 @@ getCurrentUsername(): string | null {
   }
 
   // Error handling
-  private handleError(error: any): Observable<never> {
-    console.error('An error occurred:', error);
-    return throwError(() => new Error('Something went wrong. Please try again later.'));
+  private handleError(error: any) {
+    let errorMessage = '';
+    if (error.error instanceof ErrorEvent) {
+      // Client-side error
+      errorMessage = `Error: ${error.error.message}`;
+    } else {
+      // Server-side error
+      errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
+    }
+    return throwError(() => new Error(errorMessage));
   }
 
   // Get headers with auth token
@@ -179,8 +148,6 @@ getCurrentUsername(): string | null {
   /**
    * Upload and process a CSV file for bulk prediction
    * @param file CSV file to process
-   * @param username User's username
-   * @param email User's email address
    * @returns Observable with file ID for tracking
    */
   uploadCsvForPrediction(file: File): Observable<{ fileId: string, name: string, timestamp: Date }> {
@@ -206,7 +173,7 @@ getCurrentUsername(): string | null {
   }
 
   /**
-   * Get list of all files (both completed and pending)  
+   * Get list of all files (both completed and pending)
    * @returns Observable with file lists
    */
   getFiles(): Observable<{ pendingFiles: FilesResponse[], completedFiles: FilesResponse[] }> {

@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, current_app
 import os
 from app.predictor import predict_sentiment
 from app.auth import register_user, login_user
@@ -12,10 +12,20 @@ import jwt
 from datetime import datetime, timedelta
 from pathlib import Path
 from flask_cors import CORS  # Add CORS support
-from flask_jwt_extended import jwt_required, get_jwt_identity  # Import JWT utilities
+
+import sys
+import os
+
+# Add the parent directory to sys.path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
+from Database import create_app
+from Database.models import db, User, Subscription
+from sqlalchemy import text as sql_text  # Rename to avoid conflicts
+
 
 # Initialize the app and load model
-app = Flask(__name__)
+app = create_app()
 
 # Add CORS to allow frontend requests
 CORS(app)
@@ -66,7 +76,7 @@ def predict():
             decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
             if decoded_token.get("username") != username:
                 return jsonify({"error": "Invalid token"}), 403
-            user_id = decoded_token.get("user_id")
+            user_id = str(decoded_token.get("user_id"))  # Convert user_id to string
         except jwt.ExpiredSignatureError:
             return jsonify({"error": "Token expired"}), 401
         except jwt.InvalidTokenError:
@@ -77,11 +87,11 @@ def predict():
         if not data or "text" not in data:
             return jsonify({"error": "No text provided"}), 400
 
-        text = data["text"]
-        result = predict_sentiment(text)
+        text_input = data["text"]
+        result = predict_sentiment(text_input)
 
         # Create user directory if it doesn't exist
-        user_dir = USER_FILES_DIR / user_id
+        user_dir = USER_FILES_DIR / user_id  # Ensure user_id is a string
         user_dir.mkdir(exist_ok=True)
         
         history_file = user_dir / HISTORY_FILE
@@ -100,6 +110,26 @@ def predict():
         with open(history_file, "w") as f:
             json.dump(predictions, f, indent=4)
 
+        # Update the database with the prediction result
+        with app.app_context():
+            user = User.query.filter_by(id=user_id).first()
+            if not user:
+                return jsonify({"error": "User not found"}), 404
+
+            # Save prediction to the database
+            prediction_entry = {
+                "user_id": user.id,
+                "text": text_input,
+                "final_prediction": result["final_prediction"],
+                "confidence": result["confidence"],
+                "created_at": datetime.utcnow()  # Use created_at instead of timestamp
+            }
+            db.session.execute(
+                sql_text("INSERT INTO predictions (user_id, text, final_prediction, confidence, created_at) VALUES (:user_id, :text, :final_prediction, :confidence, :created_at)"),
+                prediction_entry
+            )
+            db.session.commit()
+
         return jsonify(result)
 
     except Exception as e:
@@ -110,44 +140,28 @@ def signup():
     try:
         data = request.get_json()
         if not data:
-            return jsonify({
-                "success": False,
-                "message": "No data provided"
-            }), 400
+            return jsonify({"error": "Invalid request"}), 400
 
         username = data.get("username")
         password = data.get("password")
         email = data.get("email")
 
         if not all([username, password, email]):
-            return jsonify({
-                "success": False,
-                "message": "Email, Username, and Password are required"
-            }), 400
+            return jsonify({"error": "Missing required fields"}), 400
 
-        success, message, user_data = register_user(username, password, email)
+        # Ensure app context is active
+        from Database import create_app
+        app = create_app()
+        with app.app_context():
+            from app.auth import register_user
+            success, message, user_data = register_user(username, password, email)
 
         if success:
-            response = {
-                "success": True,
-                "message": message,
-                "user": user_data
-            }
-            status_code = 200
+            return jsonify({"message": message, "user": user_data}), 201
         else:
-            response = {
-                "success": False,
-                "message": message
-            }
-            status_code = 409
-
-        return jsonify(response), status_code
-
+            return jsonify({"error": message}), 400
     except Exception as e:
-        return jsonify({
-            "success": False,
-            "message": f"Server error: {str(e)}"
-        }), 500
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -159,17 +173,18 @@ def login():
         username = data.get("username")
         password = data.get("password")
 
-        # Add debug logging
-        print(f"Login attempt for username: {username}")
-        print(f"Request data: {data}")
-
         if not username or not password:
             return jsonify({"error": "Username and Password are required"}), 400
 
-        success, message, user_data = login_user(username, password)
+        # Ensure app context is active
+        from Database import create_app
+        app = create_app()
+        with app.app_context():
+            from app.auth import login_user
+            success, message, user_data = login_user(username, password)
 
         if success:
-            # Generate token
+            # Generate JWT token
             token = create_token(user_data['id'], username, user_data['email'])
             
             return jsonify({
@@ -185,62 +200,37 @@ def login():
             return jsonify({"error": message}), 401
 
     except Exception as e:
-        print(f"Login error: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/subscribe", methods=["POST"])
 def subscribe():
-    data = request.get_json()
-    username = data.get("username")
+    try:
+        data = request.get_json()
+        username = data.get("username")
 
-    # Load users data from JSON file
-    with open("users.json", "r") as f:
-        users = json.load(f)
+        if not username:
+            return jsonify({"error": "Username is required"}), 400
 
-    if username not in users:
-        return jsonify({"error": "User not found"}), 404
+        # Find user
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            return jsonify({"error": "User not found"}), 404
 
-    # Update the subscription status
-    with open("subscriptions.json", "r") as f:
-        subscriptions = json.load(f)
+        # Update subscription status
+        subscription = Subscription.query.filter_by(user_id=user.id).first()
+        if not subscription:
+            subscription = Subscription(user_id=user.id, subscribed=True)
+            db.session.add(subscription)
+        else:
+            subscription.subscribed = True
+            subscription.updated_at = datetime.utcnow()
 
-    subscriptions[username] = True
+        db.session.commit()
 
-    # Save the updated subscription data
-    with open("subscriptions.json", "w") as f:
-        json.dump(subscriptions, f, indent=4)
-
-    return jsonify({"message": f"User {username} subscribed successfully!"}), 200
-
-@app.route("/user/data", methods=["GET"])
-@jwt_required() # Protect this route, only logged-in users can access their data
-def get_user_specific_data():
-    current_username = get_jwt_identity() # Get the username from the JWT token
-    
-    print(f"--- /user/data: Request for user: '{current_username}' ---")
-
-    # TODO: Implement logic to fetch actual data for this user
-    # This might involve:
-    # - Reading from users.json to get email or other profile info.
-
-    # For now, returning MOCK data structure similar to what frontend expects:
-    mock_data_for_user = {
-        "username": current_username,
-        "email": f"{current_username}@example.com", # Placeholder
-        "totalPredictions": 0, # Placeholder
-        "totalFiles": 0,       # Placeholder
-        "predictionHistory": [
-            # {"text": "Old text 1", "final_prediction": "Positive", "confidence": 90, "sentiment_scores": [{"name": "Positive", "value": 90}], "timestamp": "2024-05-20T10:00:00Z"}
-        ],
-        "pendingFiles": [
-            # {"id": "pending123", "name": "pending_data.csv", "timestamp": "2024-05-21T10:00:00Z"}
-        ],
-        "completedFiles": [
-            # {"id": "completed456", "name": "processed_data.csv", "status": "completed", "timestamp": "2024-05-19T10:00:00Z"}
-        ]
-    }
-    return jsonify(mock_data_for_user), 200
+        return jsonify({"message": f"User {username} subscribed successfully!"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/check-subscription", methods=["GET"])
 def check_subscription():
@@ -249,20 +239,27 @@ def check_subscription():
     if not username:
         return jsonify({"error": "Username is required."}), 400
 
-    # Load subscriptions data
-    with open("subscriptions.json", "r") as f:
-        subscriptions = json.load(f)
+    try:
+        # Query the database for the user
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            return jsonify({"error": "User not found."}), 404
 
-    if username not in subscriptions:
-        return jsonify({"error": "User not found."}), 404
+        # Query the database for the subscription status
+        subscription = Subscription.query.filter_by(user_id=user.id).first()
+        if not subscription or not subscription.subscribed:
+            return jsonify({
+                "access": False,
+                "message": "❌ Please subscribe to access bulk prediction."
+            }), 403
 
-    # Check subscription status
-    is_subscribed = subscriptions[username]
+        return jsonify({
+            "access": True,
+            "message": "✅ You are subscribed!"
+        }), 200
 
-    if is_subscribed:
-        return jsonify({"access": True, "message": "✅ You are subscribed!"}), 200
-    else:
-        return jsonify({"access": False, "message": "❌ Please subscribe to access bulk prediction."}), 403
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/bulk_predict", methods=["POST"])
@@ -280,24 +277,24 @@ def bulk_predict():
             decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
             if decoded_token.get("username") != username:
                 return jsonify({"error": "Invalid token"}), 403
-            user_id = decoded_token.get("user_id")
+            user_id = str(decoded_token.get("user_id"))  # Convert user_id to string
         except jwt.ExpiredSignatureError:
             return jsonify({"error": "Token expired"}), 401
         except jwt.InvalidTokenError:
             return jsonify({"error": "Invalid token"}), 401
 
-        # Check subscription status
-        try:
-            with open("subscriptions.json", "r") as f:
-                subscriptions = json.load(f)
-        except FileNotFoundError:
-            subscriptions = {}
+        # Check subscription status from the database
+        with app.app_context():
+            user = User.query.filter_by(id=user_id).first()
+            if not user:
+                return jsonify({"error": "User not found"}), 404
 
-        if username not in subscriptions or not subscriptions[username]:
-            return jsonify({
-                "error": "Subscription required", 
-                "message": "Please subscribe to access bulk prediction feature"
-            }), 403
+            subscription = Subscription.query.filter_by(user_id=user.id).first()
+            if not subscription or not subscription.subscribed:
+                return jsonify({
+                    "error": "Subscription required",
+                    "message": "Please subscribe to access bulk prediction feature"
+                }), 403
 
         # Check if file is uploaded
         if "file" not in request.files:
@@ -326,7 +323,7 @@ def bulk_predict():
             return jsonify({"error": "CSV file is empty"}), 400
 
         # Create user directory if it doesn't exist
-        user_dir = USER_FILES_DIR / user_id
+        user_dir = USER_FILES_DIR / str(user_id)  # Convert user_id to string
         user_dir.mkdir(exist_ok=True)
 
         # Generate unique file ID and create file paths
@@ -373,6 +370,21 @@ def bulk_predict():
         if pending_file_path.exists():
             pending_file_path.unlink()
 
+        # Update the database with file details
+        with app.app_context():
+            db.session.execute(
+                sql_text("INSERT INTO files (user_id, file_id, filename, status, created_at, updated_at) VALUES (:user_id, :file_id, :filename, :status, :created_at, :updated_at)"),
+                {
+                    "user_id": user.id,
+                    "file_id": file_id,
+                    "filename": file.filename,
+                    "status": "completed",
+                    "created_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow()
+                }
+            )
+            db.session.commit()
+
         response_data = {
             "fileId": file_id,
             "name": file.filename,
@@ -386,7 +398,8 @@ def bulk_predict():
         return jsonify(response_data), 200
 
     except Exception as e:
-        print("Error during bulk prediction:", str(e))
+        import traceback
+        traceback.print_exc()  # Print the full stack trace
         return jsonify({"error": str(e)}), 500
     
 # 1. Prediction History API
@@ -778,19 +791,23 @@ def update_subscription():
         if not username:
             return jsonify({"error": "Username is required"}), 400
 
-        # Load existing subscriptions
-        try:
-            with open("subscriptions.json", "r") as f:
-                subscriptions = json.load(f)
-        except FileNotFoundError:
-            subscriptions = {}
+        # Ensure app context is active
+        with app.app_context():
+            # Find user in the database
+            user = User.query.filter_by(username=username).first()
+            if not user:
+                return jsonify({"error": "User not found"}), 404
 
-        # Update subscription status
-        subscriptions[username] = subscribed
+            # Update subscription status in the database
+            subscription = Subscription.query.filter_by(user_id=user.id).first()
+            if not subscription:
+                subscription = Subscription(user_id=user.id, subscribed=subscribed)
+                db.session.add(subscription)
+            else:
+                subscription.subscribed = subscribed
+                subscription.updated_at = datetime.utcnow()
 
-        # Save back to file
-        with open("subscriptions.json", "w") as f:
-            json.dump(subscriptions, f, indent=4)
+            db.session.commit()
 
         return jsonify({
             "success": True,

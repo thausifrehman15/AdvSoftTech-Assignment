@@ -1,9 +1,9 @@
 {
-  "usman": "scrypt:32768:8:1$7RgxlWNzFBJe7yM5$d6bc9c614d5bbca4a607cdc959df8e61bdba3af9f578693a34bf515b3e6070c45d1c230b14d376bcaaea16e47b20deb9738650b18e7967f79eabc6aa0887bbe1",
-  "testuser_pbkdf2": "pbkdf2:sha256:1000000$k83tuBGWFPX1xT9T$430fbe0eb371ce062155e84cc2e173b2fdd211e5bcb1111817153f19c901943a",
-  "another_user_for_pbkdf2_email": "pbkdf2:sha256:1000000$4us7BCkkObkpXylm$ea3dd4ff5a8a40724c9c899e7991c9cfb0947b9e605526f2da72a6cea7ee6f6f",
-  "arpan": "pbkdf2:sha256:1000000$NjvRh357dK9QWVFx$f5c4d4c03735cf203200ce57676cfafdf796135aa02943a07a431145d5f7bb7b",
-  "arun": "pbkdf2:sha256:1000000$QSiMPG5XJlUt7GTu$a038dbbf22ba889aa98a236734738f857aa9b045133e6810705e290a828fd251",
-  "nahom": "pbkdf2:sha256:1000000$03cjVQUp4BuLLDtF$71e92762832dc20d42ff086b4c956e6ab477a7c079bd793fb2262dd8ad5c3b66",
-  "fasial": "pbkdf2:sha256:1000000$yStkxvKETYo8kB7Y$1a0b18cb6c96f254e794fe0b1595e6e7e9663f62a10e17eb9974283301187c59"
+    "usman": "scrypt:32768:8:1$7RgxlWNzFBJe7yM5$d6bc9c614d5bbca4a607cdc959df8e61bdba3af9f578693a34bf515b3e6070c45d1c230b14d376bcaaea16e47b20deb9738650b18e7967f79eabc6aa0887bbe1",
+    "arpan": {
+        "id": "22e0cbb0-b29e-4e33-828e-ef32364fab50",
+        "username": "arpan",
+        "password": "arpan123",
+        "email": "arpan@gmail.com"
+    }
 }

@@ -5,9 +5,6 @@ import { ContainerComponent, RowComponent, ColComponent, CardGroupComponent, Tex
 import { FormBuilder, FormGroup, Validators, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { PredictionService } from '../../dashboard/prediction.service';
-import { tap, catchError, finalize } from 'rxjs/operators';
-import { Observable, throwError } from 'rxjs';
-import { LoginResponse } from '../../dashboard/login-response.interface';
 
 @Component({
   selector: 'app-login',
@@ -43,7 +40,6 @@ export class LoginComponent implements OnInit {
   errorMessage: string = '';
   successMessage: string = '';
   loading: boolean = false;
-  authToken: string | null = null;
 
   constructor(
     private fb: FormBuilder,
@@ -102,27 +98,20 @@ export class LoginComponent implements OnInit {
     this.errorMessage = '';
 
     const { username, password } = this.loginForm.value;
-
-    this.predictionService.login(username, password).pipe(
-      tap(response => {
-        console.log('Login response:', response); // Log the full response
-        if (response && response.token) {
-          localStorage.setItem('authToken', response.token); // Save token to local storage
-          this.authToken = response.token; // Store token in component variable
-          console.log('Token saved:', response.token);
-        }
-      }),
-      finalize(() => {
-        this.loading = false; // Reset loading flag
-      })
-    ).subscribe({
+    
+    this.predictionService.login(username, password).subscribe({
       next: (response) => {
-        console.log('Login successful:', response.message);
-        this.router.navigate(['/dashboard']); // Navigate to the dashboard
+        this.loading = false;
+        
+        // Check if we have a return URL from the route
+        const returnUrl = this.activatedRoute.snapshot.queryParams['returnUrl'] || '/dashboard';
+        
+        // Navigate to return URL or dashboard
+        this.router.navigateByUrl(returnUrl);
       },
-      error: (err) => {
-        console.error('Login failed:', err);
-        this.errorMessage = err.message || 'Login failed. Please try again.';
+      error: (error) => {
+        this.loading = false;
+        this.errorMessage = error.message || 'Login failed. Please check your credentials.';
       }
     });
   }
