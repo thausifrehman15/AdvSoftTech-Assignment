@@ -6,6 +6,7 @@ from app.email_utils import send_email_with_attachment  # ✅ NEW
 import pandas as pd
 import io
 import requests  # ✅ For internal API call
+from pathlib import Path  # ✅ For file path manipulation
 from flask_swagger_ui import get_swaggerui_blueprint
 import jwt
 from datetime import datetime, timedelta
@@ -785,6 +786,68 @@ def update_subscription():
         }), 200
 
     except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+#NEW: Delete File API
+@app.route("/files/<user_id>/<file_id>", methods=["DELETE"])
+def delete_file(user_id, file_id):
+    # Add token validation
+    token = request.headers.get("authToken")
+    username = request.headers.get("username")
+
+    if not token or not username:
+        return jsonify({"error": "Authorization token and Username are required"}), 401
+
+    # Verify the token
+    try:
+        decoded_token = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        if decoded_token.get("username") != username:
+            return jsonify({"error": "Invalid token or username mismatch"}), 403
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token has expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 401
+
+    try:
+        with app.app_context():
+            # First, delete the file blob
+            db.session.execute(
+                sql_text("""
+                    DELETE FROM file_blobs 
+                    WHERE file_id = :file_id AND user_id = :user_id
+                """),
+                {"file_id": file_id, "user_id": user_id}
+            )
+
+            # Then, delete the file metadata
+            result = db.session.execute(
+                sql_text("""
+                    DELETE FROM files 
+                    WHERE file_id = :file_id AND user_id = :user_id
+                    RETURNING filename
+                """),
+                {"file_id": file_id, "user_id": user_id}
+            )
+            
+            db.session.commit()
+
+            # Check if file was found and deleted
+            deleted_file = result.fetchone()
+            if not deleted_file:
+                return jsonify({
+                    "error": "File not found",
+                    "message": "The requested file does not exist or you don't have permission to delete it"
+                }), 404
+
+            return jsonify({
+                "success": True,
+                "message": f"File {deleted_file.filename} deleted successfully",
+                "file_id": file_id
+            }), 200
+
+    except Exception as e:
+        print(f"Error deleting file: {str(e)}")
+        db.session.rollback()
         return jsonify({"error": str(e)}), 500
 
 
