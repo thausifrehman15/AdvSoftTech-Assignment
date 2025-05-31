@@ -7,3 +7,4 @@ Pyjwt
 transformers
 torch
 Flask-SQLAlchemy
+PyMySQL
