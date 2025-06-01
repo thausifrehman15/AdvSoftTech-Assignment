@@ -115,7 +115,6 @@ export class SubscriptionComponent implements OnInit {
     // Update current subscription after backend check
     setTimeout(() => {
       this.currentSubscription = this.subscriptionService.getCurrentSubscription();
-      console.log('Updated current subscription:', this.currentSubscription);
     }, 1000);
 
     // Check if dark mode is active
@@ -125,15 +124,9 @@ export class SubscriptionComponent implements OnInit {
     document.addEventListener('themeChange', () => {
       this.isDarkMode = document.body.classList.contains('dark-theme');
     });
-    
-    // Debug log
-    console.log('Component initialized, subscription plans:', this.subscriptionPlans);
-    console.log('Current subscription:', this.currentSubscription);
-    console.log('Dark mode:', this.isDarkMode);
   }
 
   selectPlan(plan: SubscriptionPlan): void {
-    console.log('Plan selected:', plan);
     
     // If plan is free, just subscribe
     if (plan.id === 'free') {
@@ -148,7 +141,6 @@ export class SubscriptionComponent implements OnInit {
     // For paid plans, show payment modal
     this.selectedPlan = plan;
     this.showPaymentModal = true;
-    console.log('Payment modal should be visible:', this.showPaymentModal);
     
     // Force change detection
     setTimeout(() => {
@@ -197,37 +189,45 @@ export class SubscriptionComponent implements OnInit {
         error: (error) => {
           this.processing = false;
           this.paymentError = 'Payment processing failed. Please try again.';
-          console.error('Payment error:', error);
         }
       });
     }
   }
 
-  // Add a new method to handle plan cancellation
+  formatExpiryDate(event: any): void {
+    const input = event.target;
+    let value = input.value.replace(/\D/g, '');
+    if (value.length > 4) {
+      value = value.slice(0, 4);
+    }
+    if (value.length >= 3) {
+      value = `${value.slice(0, 2)}/${value.slice(2)}`;
+    }
+    input.value = value;
+    this.paymentForm.get('expiryDate')?.setValue(value);
+  }
+
+
   cancelSubscription(): void {
     if (this.currentSubscription === 'free') {
-      return; // Nothing to cancel
+      return;
     }
     
-    // Show confirmation dialog
     if (confirm('Are you sure you want to cancel your Pro subscription? You will lose access to premium features.')) {
       this.subscriptionService.setSubscription('free');
       this.currentSubscription = 'free';
       alert('Your subscription has been cancelled. Changes will take effect immediately.');
       
-      // Navigate to dashboard after a short delay
       setTimeout(() => {
         this.router.navigate(['/dashboard']);
       }, 1000);
     }
   }
 
-  // Add a method to check if the current plan is the free plan
   isFreePlan(): boolean {
     return this.currentSubscription === 'free';
   }
 
-  // Update the isCurrentPlan method to include this logic
   isCurrentPlan(planId: string): boolean {
     return this.currentSubscription === planId;
   }

@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpHeaders } from '@angular/common/http';
 import { Observable, of, throwError } from 'rxjs';
 import { catchError, delay, map, tap } from 'rxjs/operators';
 import { environment } from '../../environment/environment';
@@ -107,16 +107,35 @@ export class PredictionService {
   }
 
   // Error handling
-  private handleError(error: any) {
-    let errorMessage = '';
+  private handleError(error: HttpErrorResponse): Observable<never> {
+    let errorMessage = 'An unknown error occurred';
+    
     if (error.error instanceof ErrorEvent) {
       // Client-side error
-      errorMessage = `Error: ${error.error.message}`;
+      errorMessage = `Client Error: ${error.error.message}`;
     } else {
       // Server-side error
-      errorMessage = `Error Code: ${error.status}\nMessage: ${error.message}`;
+      console.log('Server error details:', {
+        status: error.status,
+        statusText: error.statusText,
+        body: error.error
+      });
+      
+      if (error.status === 400 && error.error) {
+        // For 400 errors, try to extract the actual error message
+        if (typeof error.error === 'object' && error.error.error) {
+          errorMessage = error.error.error;
+        } else if (typeof error.error === 'string') {
+          errorMessage = error.error;
+        } else {
+          errorMessage = `Bad Request: ${error.statusText}`;
+        }
+      } else {
+        errorMessage = `Server Error: ${error.status} ${error.statusText}`;
+      }
     }
-    return throwError(() => new Error(errorMessage));
+    
+    return throwError(() => ({ ...error, message: errorMessage }));
   }
 
   // Get headers with auth token

@@ -209,7 +209,6 @@ export class DashboardComponent implements OnInit {
     this.route.data.subscribe((data) => {
       if (data['activeTab']) {
         this.activeTab = data['activeTab'];
-        console.log('Active tab from route data:', this.activeTab);
       }
     });
 
@@ -239,7 +238,6 @@ export class DashboardComponent implements OnInit {
 
     this.predictionService.getUserData(userId).subscribe({
       next: (userData: UserDataResponseWithChart) => {
-        console.log('Received user data:', userData);
 
         // Set prediction history
         this.singlePredictionHistory = userData.predictionHistory || [];
@@ -257,12 +255,6 @@ export class DashboardComponent implements OnInit {
 
         // Start periodic checking
         this.startPeriodicFileCheck();
-
-        console.log('Processed data:', {
-          predictionHistory: this.singlePredictionHistory.length,
-          pendingFiles: this.pendingFiles.length,
-          completedFiles: this.myFiles.length,
-        });
       },
       error: (error) => {
         console.error('Error loading user data:', error);
@@ -436,7 +428,6 @@ export class DashboardComponent implements OnInit {
           // Fetch updated prediction history from API
           this.predictionService.getPredictionHistory(userId).subscribe({
             next: (historyResponse) => {
-              console.log('Updated history response:', historyResponse);
 
               // Update prediction history with API response
               if (historyResponse && historyResponse.predictions) {
@@ -527,8 +518,6 @@ export class DashboardComponent implements OnInit {
    * @param event The click event (to prevent it from triggering the tab selection)
    */
   deleteCsvFile(fileId: string, event: Event): void {
-    // Stop the event from propagating (to prevent tab selection)
-    // Stop event propagation to prevent tab selection
     event.stopPropagation();
 
     // Find and remove the file
@@ -632,7 +621,6 @@ export class DashboardComponent implements OnInit {
     this.predictionService.getFileDetails(userId, fileId).subscribe({
       next: (fileDetails) => {
         try {
-          console.log('Received file details:', fileDetails);
 
           // Transform the data to match expected format
           const transformedData = this.transformFileDetailsData(fileDetails);
@@ -834,11 +822,9 @@ export class DashboardComponent implements OnInit {
   }
 
   showCategoriesModal(categories: any[]): void {
-    console.log('Categories:', categories);
     this.selectedCategories = categories;
     this.showCategoryModal = true;
 
-    console.log('Categories:', categories);
     setTimeout(() => {
       this.showCategoryModal = false;
     }, 3000);
@@ -873,7 +859,6 @@ export class DashboardComponent implements OnInit {
 
               if (pendingFile) {
                 // File is still pending, continue polling
-                console.log(`File ${fileId} still pending...`);
                 return;
               }
 
@@ -910,10 +895,6 @@ export class DashboardComponent implements OnInit {
                   this.fileStatusSubscriptions.get(fileId)?.unsubscribe();
                   this.fileStatusSubscriptions.delete(fileId);
                 }
-
-                console.log(
-                  `File ${fileId} completed and moved to completed files`
-                );
               } else {
                 // File not found in either pending or completed - assume error
                 completedOrError = true;
@@ -958,7 +939,6 @@ export class DashboardComponent implements OnInit {
         // Check if we have active subscriptions for all pending files
         this.pendingFiles.forEach((file) => {
           if (!this.fileStatusSubscriptions.has(file.id)) {
-            console.log(`Starting polling for file: ${file.id}`);
             this.pollFileStatus(file.id);
           }
         });
@@ -1181,14 +1161,11 @@ export class DashboardComponent implements OnInit {
   }
 
   navigateToSubscription(): void {
-    console.log('Navigating to subscription page...');
-
     // Use the router to navigate programmatically
     this.router
       .navigate(['/subscription'])
       .then((success) => {
         // Log whether navigation was successful for debugging
-        console.log('Navigation success:', success);
 
         if (!success) {
           // If navigation fails, try an alternative approach
@@ -1236,8 +1213,6 @@ export class DashboardComponent implements OnInit {
                   this.extractUserIdFromToken() || 
                   'default-user-id';
 
-    console.log('Downloading file:', { userId, fileId });
-
     this.predictionService.downloadFile(userId, fileId).subscribe({
       next: (blob) => {
         // Create download link
@@ -1254,7 +1229,6 @@ export class DashboardComponent implements OnInit {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
         
-        console.log('File downloaded successfully');
       },
       error: (error) => {
         console.error('Error downloading file:', error);

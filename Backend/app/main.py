@@ -2,15 +2,15 @@ from flask import Flask, request, jsonify, send_file, current_app
 import os
 from app.predictor import predict_sentiment
 from app.auth import register_user, login_user
-from app.email_utils import send_email_with_attachment  # ✅ NEW
+from app.email_utils import send_email_with_attachment 
 import pandas as pd
 import io
-import requests  # ✅ For internal API call
-from pathlib import Path  # ✅ For file path manipulation
+import requests
+from pathlib import Path
 from flask_swagger_ui import get_swaggerui_blueprint
 import jwt
 from datetime import datetime, timedelta
-from flask_cors import CORS  # Add CORS support
+from flask_cors import CORS
 import json
 
 import sys
@@ -21,16 +21,14 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'
 
 from Database import create_app
 from Database.models import db, User, Subscription
-from sqlalchemy import text as sql_text  # Rename to avoid conflicts
+from sqlalchemy import text as sql_text 
 
 
-# Initialize the app and load model
 app = create_app()
 
 # Add CORS to allow frontend requests
 CORS(app)
 
-# Add these lines after creating the Flask app
 SWAGGER_URL = '/api/docs'
 API_URL = '/static/swagger.yaml'
 
@@ -41,7 +39,7 @@ swaggerui_blueprint = get_swaggerui_blueprint(
 )
 app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
 
-SECRET_KEY = 'your_secret_key'  # This should be securely stored in your config
+SECRET_KEY = 'your_secret_key'
 
 # Helper function to generate JWT token
 def create_token(user_id, username, email):
@@ -252,12 +250,12 @@ def check_subscription():
         if not subscription or not subscription.subscribed:
             return jsonify({
                 "access": False,
-                "message": "❌ Please subscribe to access bulk prediction."
+                "message": "Please subscribe to access bulk prediction."
             }), 403
 
         return jsonify({
             "access": True,
-            "message": "✅ You are subscribed!"
+            "message": "You are subscribed!"
         }), 200
 
     except Exception as e:

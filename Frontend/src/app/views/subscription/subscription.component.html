@@ -184,6 +184,8 @@
               <div class="col-md-6 mb-3">
                 <label cLabel for="expiryDate">Expiry Date</label>
                 <input cFormControl id="expiryDate" formControlName="expiryDate" placeholder="MM/YY" 
+                    (input)="formatExpiryDate($event)"
+                    maxlength="5"
                       [ngClass]="{'is-invalid': hasInvalidClass('expiryDate')}">
                 <div *ngIf="hasInvalidClass('expiryDate')" class="invalid-feedback">
                   Enter a valid expiry date (MM/YY)

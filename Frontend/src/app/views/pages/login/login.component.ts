@@ -111,7 +111,32 @@ export class LoginComponent implements OnInit {
       },
       error: (error) => {
         this.loading = false;
-        this.errorMessage = error.message || 'Login failed. Please check your credentials.';
+        
+        // Handle different error scenarios
+        let errorMessage = 'Login failed. Please try again.';
+        
+        if (error.status === 401) {
+          // Unauthorized - Invalid credentials
+          if (error.error && error.error.error) {
+            errorMessage = error.error.error; // Backend error message
+          } else {
+            errorMessage = 'Invalid username or password. Please check your credentials.';
+          }
+        } else if (error.status === 0) {
+          // Network error
+          errorMessage = 'Network error. Please check your internet connection.';
+        } else if (error.status === 500) {
+          // Server error
+          errorMessage = 'Server error. Please try again later.';
+        } else if (error.error && error.error.error) {
+          // Other backend errors
+          errorMessage = error.error.error;
+        } else if (error.message) {
+          // Generic error message
+          errorMessage = error.message;
+        }
+        
+        this.errorMessage = errorMessage;
       }
     });
   }
