@@ -87,6 +87,32 @@ export class PredictionService {
     }
   }
 
+  /**
+   * Delete a file from the server
+   * @param userId User ID
+   * @param fileId File ID to delete
+   * @returns Observable with delete response
+   */
+  deleteFile(userId: string, fileId: string): Observable<any> {
+    if (this.useMockData) {
+      // Mock deletion - just return success
+      return of({ 
+        success: true, 
+        message: 'File deleted successfully (mock)',
+        file_id: fileId 
+      }).pipe(delay(500));
+    }
+
+    const endpoint = `${this.apiUrl}/files/${userId}/${fileId}`;
+    
+    return this.http.delete<any>(endpoint, { 
+      headers: this.getAuthHeaders() 
+    }).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+
   private mockRegister(email: string, username: string, password: string): Observable<any> {
     // Check if username already exists in our mock data
 

@@ -38,12 +38,14 @@ import { SubscriptionService } from '../../services/subscription.service';
 import { filter, interval, Subscription, takeWhile } from 'rxjs';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { FilesResponse, FilesResponseWithChart, PredictionHistoryResponse, UserDataResponse, UserDataResponseWithChart } from './prediction.interface';
+import { IconDirective } from '@coreui/icons-angular';
 
 @Component({
   selector: 'app-dashboard',
   templateUrl: 'dashboard.component.html',
   styleUrls: ['dashboard.component.scss'],
   imports: [
+    IconDirective,
     CommonModule,
     PaginationComponent,
     PageItemComponent,
@@ -496,6 +498,66 @@ export class DashboardComponent implements OnInit {
       },
     });
   }
+
+  /**
+   * Delete a file from My Files list and server
+   * @param fileId The ID of the file to delete
+   * @param event The click event (to prevent it from triggering the file selection)
+   */
+  deleteMyFile(fileId: string, event: Event): void {
+    event.stopPropagation();
+
+    const fileName = this.myFiles.find(f => f.id === fileId)?.name || 'this file';
+    
+    if (!confirm(`Are you sure you want to delete "${this.cleanFileName(fileName)}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    // Get user ID for API call
+    const userId = localStorage.getItem('userId') || 
+                  this.extractUserIdFromToken() || 
+                  'default-user-id';
+
+    // Call the backend delete API
+    this.predictionService.deleteFile(userId, fileId).subscribe({
+      next: (response) => {
+        // Remove from myFiles array
+        this.myFiles = this.myFiles.filter(file => file.id !== fileId);
+        
+        // Update filtered files
+        this.filterFiles();
+        
+        // Remove from csvFiles if it's currently loaded
+        this.csvFiles = this.csvFiles.filter(file => file.id !== fileId);
+        
+        // If we deleted the active file, clear selection
+        if (fileId === this.activeCsvFile) {
+          this.activeCsvFile = '';
+          this.currentPage = 0;
+        }
+        
+        // Force change detection
+        this.cdr.detectChanges();
+        
+        console.log('File deleted successfully:', response.message);
+      },
+      error: (error) => {
+        console.error('Error deleting file:', error);
+        
+        let errorMessage = 'Failed to delete file. ';
+        if (error.error && error.error.message) {
+          errorMessage += error.error.message;
+        } else if (error.status === 404) {
+          errorMessage += 'File not found on server.';
+        } else {
+          errorMessage += 'Please try again.';
+        }
+        
+        alert(errorMessage);
+      }
+    });
+  }
+
 
   // Helper method to extract user ID from JWT token
   private extractUserIdFromToken(): string | null {

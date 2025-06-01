@@ -808,7 +808,24 @@ def delete_file(user_id, file_id):
 
     try:
         with app.app_context():
-            # First, delete the file blob
+            # First, get the filename before deleting
+            file_result = db.session.execute(
+                sql_text("""
+                    SELECT filename FROM files 
+                    WHERE file_id = :file_id AND user_id = :user_id
+                """),
+                {"file_id": file_id, "user_id": user_id}
+            ).fetchone()
+
+            if not file_result:
+                return jsonify({
+                    "error": "File not found",
+                    "message": "The requested file does not exist or you don't have permission to delete it"
+                }), 404
+
+            filename = file_result.filename
+
+            # Delete the file blob
             db.session.execute(
                 sql_text("""
                     DELETE FROM file_blobs 
@@ -817,29 +834,20 @@ def delete_file(user_id, file_id):
                 {"file_id": file_id, "user_id": user_id}
             )
 
-            # Then, delete the file metadata
-            result = db.session.execute(
+            # Delete the file metadata
+            db.session.execute(
                 sql_text("""
                     DELETE FROM files 
                     WHERE file_id = :file_id AND user_id = :user_id
-                    RETURNING filename
                 """),
                 {"file_id": file_id, "user_id": user_id}
             )
             
             db.session.commit()
 
-            # Check if file was found and deleted
-            deleted_file = result.fetchone()
-            if not deleted_file:
-                return jsonify({
-                    "error": "File not found",
-                    "message": "The requested file does not exist or you don't have permission to delete it"
-                }), 404
-
             return jsonify({
                 "success": True,
-                "message": f"File {deleted_file.filename} deleted successfully",
+                "message": f"File {filename} deleted successfully",
                 "file_id": file_id
             }), 200
 
@@ -847,7 +855,6 @@ def delete_file(user_id, file_id):
         print(f"Error deleting file: {str(e)}")
         db.session.rollback()
         return jsonify({"error": str(e)}), 500
-
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
